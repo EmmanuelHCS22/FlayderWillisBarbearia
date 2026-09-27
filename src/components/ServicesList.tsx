@@ -1,11 +1,12 @@
 import React from 'react';
 import { Service } from '../types';
 import { PremiumIcon } from './PremiumIcon';
-import { Clock, Check } from 'lucide-react';
+import { Clock, Check, Plus } from 'lucide-react';
 
 interface ServicesListProps {
   services: Service[];
-  selectedServiceId: string | null;
+  selectedServiceId?: string | null;
+  selectedServiceIds?: string[];
   onToggleService: (service: Service) => void;
   isLoading: boolean;
 }
@@ -13,6 +14,7 @@ interface ServicesListProps {
 export const ServicesList: React.FC<ServicesListProps> = ({
   services,
   selectedServiceId,
+  selectedServiceIds = [],
   onToggleService,
   isLoading
 }) => {
@@ -52,7 +54,7 @@ export const ServicesList: React.FC<ServicesListProps> = ({
         </h2>
         <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mx-auto mt-2" />
         <p className="text-xs text-zinc-400 mt-2">
-          Toque para selecionar o serviço desejado ou toque novamente para desmarcar.
+          Toque para selecionar um ou múltiplos serviços (ex: Corte + Barba + Sobrancelha).
         </p>
       </div>
 
@@ -72,7 +74,7 @@ export const ServicesList: React.FC<ServicesListProps> = ({
       ) : (
         <div className="space-y-3.5">
           {activeServices.map((service) => {
-            const isSelected = selectedServiceId === service.id;
+            const isSelected = selectedServiceIds.includes(service.id) || selectedServiceId === service.id;
 
             return (
               <div
@@ -93,14 +95,22 @@ export const ServicesList: React.FC<ServicesListProps> = ({
 
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3.5">
-                    {/* 3D Icon container */}
-                    <div className={`w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 shadow-inner transition-colors ${
-                      isSelected
-                        ? 'bg-gradient-to-br from-[#2a220a] to-[#120f04] border-[#F1D77A]'
-                        : 'bg-gradient-to-br from-[#151515] to-[#050505] border-[#D4AF37]/30 group-hover:border-[#D4AF37]/60'
-                    }`}>
-                      <PremiumIcon name={mapIcon(service)} size={26} />
-                    </div>
+                    {/* Service Photo or 3D Icon container */}
+                    {service.imageUrl ? (
+                      <img
+                        src={service.imageUrl}
+                        alt={service.name}
+                        className="w-12 h-12 rounded-xl object-cover border border-[#D4AF37]/40 shrink-0 bg-zinc-900 shadow-inner"
+                      />
+                    ) : (
+                      <div className={`w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 shadow-inner transition-colors ${
+                        isSelected
+                          ? 'bg-gradient-to-br from-[#2a220a] to-[#120f04] border-[#F1D77A]'
+                          : 'bg-gradient-to-br from-[#151515] to-[#050505] border-[#D4AF37]/30 group-hover:border-[#D4AF37]/60'
+                      }`}>
+                        <PremiumIcon name={mapIcon(service)} size={26} />
+                      </div>
+                    )}
 
                     <div>
                       <h3 className={`font-serif font-bold text-base transition-colors ${
@@ -143,7 +153,10 @@ export const ServicesList: React.FC<ServicesListProps> = ({
                           <span>SELECIONADO</span>
                         </>
                       ) : (
-                        <span>SELECIONAR</span>
+                        <>
+                          <Plus size={12} />
+                          <span>SELECIONAR</span>
+                        </>
                       )}
                     </button>
                   </div>

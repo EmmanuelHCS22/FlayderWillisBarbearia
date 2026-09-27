@@ -16,12 +16,20 @@ export interface Service {
 
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
 
+export interface ServiceItemInBooking {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+}
+
 export interface Appointment {
   id?: string;
   customerName: string;
   customerPhone: string;
-  serviceId: string;
+  serviceId?: string;
   serviceName: string;
+  services?: ServiceItemInBooking[];
   serviceDuration: number;
   servicePrice: number;
   date: string; // YYYY-MM-DD
@@ -45,13 +53,14 @@ export interface CarouselImageItem {
   order: number;
   active: boolean;
   title?: string;
+  storageRefPath?: string;
   createdAt: string;
   updatedAt?: string;
 }
 
 export interface AdminConfig {
   configured: boolean;
-  adminEmail: string;
+  adminIdentifier: string;
   createdAt: string;
 }
 

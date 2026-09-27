@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Scissors, Calendar, Shield } from 'lucide-react';
+import { Home, Scissors, Calendar } from 'lucide-react';
 import { WHATSAPP_URL, INSTAGRAM_URL } from '../constants';
 import { PremiumIcon } from './PremiumIcon';
 
@@ -11,8 +11,7 @@ interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
-  onNavigate,
-  onOpenAdmin
+  onNavigate
 }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#050505]/95 border-t border-[#D4AF37]/30 backdrop-blur-lg px-2 py-1.5 shadow-[0_-5px_25px_rgba(0,0,0,0.8)] max-w-md mx-auto">
@@ -20,7 +19,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {/* Início */}
         <button
           onClick={() => onNavigate('home')}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
             activeTab === 'home' ? 'text-[#F1D77A]' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >
@@ -31,7 +30,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {/* Serviços */}
         <button
           onClick={() => onNavigate('services')}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
             activeTab === 'services' ? 'text-[#F1D77A]' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >
@@ -42,9 +41,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {/* Agendar Central Featured Button */}
         <button
           onClick={() => onNavigate('booking')}
-          className="flex flex-col items-center justify-center -mt-5 cursor-pointer group"
+          className="flex flex-col items-center justify-center -mt-5 cursor-pointer group px-1"
         >
-          <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#D4AF37] via-[#F1D77A] to-[#B38728] p-0.5 shadow-[0_0_18px_rgba(212,175,55,0.6)] group-hover:scale-105 transition-transform flex items-center justify-center">
+          <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#D4AF37] via-[#F1D77A] to-[#B38728] p-0.5 shadow-[0_0_18px_rgba(212,175,55,0.6)] group-hover:scale-105 transition-transform flex items-center justify-center">
             <div className="w-full h-full rounded-full bg-black flex items-center justify-center">
               <Calendar size={22} className="text-[#F1D77A]" />
             </div>
@@ -59,7 +58,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           href={INSTAGRAM_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-zinc-400 hover:text-[#F1D77A] transition-colors cursor-pointer"
+          className="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-zinc-400 hover:text-[#E1306C] transition-colors cursor-pointer"
         >
           <PremiumIcon name="instagram" size={20} />
           <span className="text-[10px] mt-1 font-medium tracking-wide">Instagram</span>

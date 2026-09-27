@@ -1,16 +1,22 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Services collection: public read, write for admin/system
+    // Services collection: public read, write for authenticated admin or initial seed
     match /services/{serviceId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null || resource == null;
     }
 
-    // Carousel collection: public read, write for admin/system
+    // Carousel collection: public read, write for authenticated admin or initial seed
     match /carousel/{imageId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null || resource == null;
+    }
+
+    // Admins collection: records authorized administrators
+    match /admins/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
     }
 
     // Admin setup / config flag
@@ -22,7 +28,7 @@ service cloud.firestore {
     // Settings collection
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     // Daily slots locks: to prevent double-booking atomically
@@ -31,7 +37,7 @@ service cloud.firestore {
       allow write: if true;
     }
 
-    // Appointments collection
+    // Appointments collection: public create with validation, authenticated admin or cancellation updates
     match /appointments/{appointmentId} {
       allow read: if true;
       allow create: if request.resource.data.customerName is string

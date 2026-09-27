@@ -1,12 +1,13 @@
 {
-  "projectId": "gen-lang-client-0356741920",
-  "appId": "1:77994749806:web:326396860540d9224adb7f",
-  "apiKey": "AIzaSyBUKgwAR2imzA863soe2tHbHA_JKfFQwFU",
-  "authDomain": "gen-lang-client-0356741920.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-eaf17744-6820-40fb-8000-ba7cef382220",
-  "storageBucket": "gen-lang-client-0356741920.firebasestorage.app",
-  "messagingSenderId": "77994749806",
-  "measurementId": "",
-  "oAuthClientId": "77994749806-f4us4huntiktg47rdb8saj8ourt9a464.apps.googleusercontent.com",
+  "projectId": "flayder-willis-barbearia",
+  "appId": "1:974116690441:web:ecf864545eaf895318f6d8",
+  "apiKey": "AIzaSyAXFngUVn2dfw63jRpljfgM_c2LHtGYxG8",
+  "authDomain": "flayder-willis-barbearia.firebaseapp.com",
+  "databaseURL": "https://flayder-willis-barbearia-default-rtdb.firebaseio.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "flayder-willis-barbearia.firebasestorage.app",
+  "messagingSenderId": "974116690441",
+  "measurementId": "G-G561V88BGZ",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }

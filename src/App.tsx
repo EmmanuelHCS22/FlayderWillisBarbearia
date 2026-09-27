@@ -15,7 +15,7 @@ export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [carouselImages, setCarouselImages] = useState<CarouselImageItem[]>([]);
   const [isLoadingServices, setIsLoadingServices] = useState(true);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking'>('home');
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
@@ -39,17 +39,21 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Selection toggle behavior: click once selects, click again deselects
+  // Multiple or single services selection toggle behavior
   const handleToggleServiceFromList = (service: Service) => {
-    if (selectedService?.id === service.id) {
-      setSelectedService(null);
-    } else {
-      setSelectedService(service);
-      const bookingEl = document.getElementById('agendamento');
-      if (bookingEl) {
-        bookingEl.scrollIntoView({ behavior: 'smooth' });
+    setSelectedServices((prev) => {
+      const exists = prev.some((s) => s.id === service.id);
+      if (exists) {
+        return prev.filter((s) => s.id !== service.id);
+      } else {
+        const updated = [...prev, service];
+        const bookingEl = document.getElementById('agendamento');
+        if (bookingEl) {
+          bookingEl.scrollIntoView({ behavior: 'smooth' });
+        }
+        return updated;
       }
-    }
+    });
   };
 
   const handleNavigate = (tab: 'home' | 'services' | 'booking') => {
@@ -86,7 +90,7 @@ export default function App() {
           }}
         />
 
-        {/* Gradiente Preto Overlay (Transição suave: mais visível no topo, preto 100% na base) */}
+        {/* Gradiente Preto Overlay (Transição suave) */}
         <div
           className="absolute inset-0 pointer-events-none z-1"
           style={{
@@ -199,7 +203,7 @@ export default function App() {
             <ExternalLink size={16} className="text-zinc-400 group-hover:text-blue-400 shrink-0 mr-1 transition-colors" />
           </a>
 
-          {/* 4. ÚNICO BOTÃO PERMANENTE: COMO CHEGAR (Padrão Preto e Dourado com Ícone 3D) */}
+          {/* 4. ÚNICO BOTÃO: COMO CHEGAR (Padrão Preto e Dourado com Ícone 3D) */}
           <button
             type="button"
             onClick={() => setIsDirectionsOpen(true)}
@@ -232,19 +236,20 @@ export default function App() {
           <Carousel images={carouselImages} />
         </section>
 
-        {/* Services Section */}
+        {/* Services Section with Multi-Service Selection */}
         <ServicesList
           services={services}
-          selectedServiceId={selectedService?.id || null}
+          selectedServiceIds={selectedServices.map(s => s.id)}
           onToggleService={handleToggleServiceFromList}
           isLoading={isLoadingServices}
         />
 
-        {/* Booking Flow: Synchronized Date & Slots */}
+        {/* Booking Flow: Synchronized Multiple Services, Date & Slots */}
         <BookingFlow
           services={services}
-          selectedService={selectedService}
-          onSelectService={(srv) => setSelectedService(srv)}
+          selectedServices={selectedServices}
+          onToggleService={handleToggleServiceFromList}
+          onClearServices={() => setSelectedServices([])}
         />
 
         {/* Footer with OFFICIAL LOGO */}
@@ -300,14 +305,14 @@ export default function App() {
             Agende seu horário online.
           </div>
 
-          {/* Admin area button */}
+          {/* PAINEL ADMIN Access Button in Footer */}
           <div className="mt-8 pt-4 border-t border-white/5 flex items-center justify-center">
             <button
               onClick={() => setIsAdminOpen(true)}
-              className="text-[10px] text-zinc-600 hover:text-zinc-400 flex items-center gap-1.5 transition-colors py-1.5 px-3 rounded-full hover:bg-white/5 cursor-pointer"
+              className="text-[11px] text-zinc-400 hover:text-[#F1D77A] flex items-center gap-2 transition-colors py-2 px-4 rounded-xl border border-white/10 hover:border-[#D4AF37]/40 hover:bg-[#D4AF37]/10 cursor-pointer uppercase font-semibold tracking-wider"
             >
-              <Lock size={11} />
-              <span>Painel Administrativo</span>
+              <Lock size={13} className="text-[#D4AF37]" />
+              <span>PAINEL ADMIN</span>
             </button>
           </div>
         </footer>
@@ -318,7 +323,7 @@ export default function App() {
           onClose={() => setIsDirectionsOpen(false)}
         />
 
-        {/* Admin Dashboard Modal with Firebase Auth */}
+        {/* Admin Dashboard Modal with Complete Firebase Auth & CRUD */}
         <AdminDashboard
           isOpen={isAdminOpen}
           onClose={() => setIsAdminOpen(false)}

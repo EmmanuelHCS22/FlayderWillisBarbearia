@@ -13,9 +13,20 @@ import {
   runTransaction,
   onSnapshot
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../lib/firebase';
-import { Service, Appointment, CarouselImageItem, AdminConfig } from '../types';
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from 'firebase/storage';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { db, storage, auth } from '../lib/firebase';
+import { Service, Appointment, AppointmentStatus, CarouselImageItem, AdminConfig } from '../types';
 import { DEFAULT_SERVICES, DEFAULT_CAROUSEL_IMAGES, CLOSING_TIME_MINUTES, WHATSAPP_PHONE_NUMBER } from '../constants';
 
 const SERVICES_COLLECTION = 'services';
@@ -23,17 +34,135 @@ const APPOINTMENTS_COLLECTION = 'appointments';
 const SLOT_LOCKS_COLLECTION = 'slot_locks';
 const CAROUSEL_COLLECTION = 'carousel';
 const ADMIN_CONFIG_COLLECTION = 'admin_config';
+const ADMINS_COLLECTION = 'admins';
+
+/**
+ * Normalizes an administrative login input (e.g. "34 9250-4146" or "3492504146")
+ * into the internal Firebase Authentication email identity.
+ * Converte "34 9250-4146" -> "3492504146@flayderwillisbarbearia.admin"
+ */
+export function normalizeAdminIdentifier(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+
+  if (trimmed.includes('@')) {
+    return trimmed.toLowerCase();
+  }
+
+  // Remove espaços, pontos, traços, parênteses e caracteres não numéricos
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits) {
+    return `${digits}@flayderwillisbarbearia.admin`;
+  }
+
+  return `${trimmed.toLowerCase().replace(/[^a-z0-9]/g, '')}@flayderwillisbarbearia.admin`;
+}
+
+/**
+ * Authenticates the admin strictly with Firebase Authentication (Email/Password).
+ * Responsável pela validação segura da senha sem armazenar senhas no Firestore.
+ */
+export async function loginAdminWithFirebase(
+  identifier: string,
+  secretPassword: string
+): Promise<FirebaseUser> {
+  const cleanDigits = identifier.replace(/\D/g, '');
+  const authEmail = normalizeAdminIdentifier(identifier);
+
+  if (!authEmail) {
+    throw new Error('Login ou senha incorretos.');
+  }
+
+  try {
+    // 1. Tentar autenticação direta via signInWithEmailAndPassword
+    const userCredential = await signInWithEmailAndPassword(auth, authEmail, secretPassword);
+    const user = userCredential.user;
+
+    // 2. Sincronizar documento administrativo seguro no Firestore (admins/{uid})
+    await syncAdminProfile(user.uid, cleanDigits || '3492504146');
+
+    return user;
+  } catch (err: any) {
+    // Se o usuário ainda não foi criado no Firebase Auth (primeira configuração)
+    if (err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-credential') {
+      try {
+        const newCredential = await createUserWithEmailAndPassword(auth, authEmail, secretPassword);
+        const newUser = newCredential.user;
+
+        await syncAdminProfile(newUser.uid, cleanDigits || '3492504146');
+        return newUser;
+      } catch (createErr: any) {
+        if (createErr?.code === 'auth/operation-not-allowed') {
+          throw createErr;
+        }
+        if (createErr?.code === 'auth/email-already-in-use') {
+          throw new Error('Login ou senha incorretos.');
+        }
+        throw createErr;
+      }
+    }
+
+    if (err?.code === 'auth/operation-not-allowed') {
+      throw err;
+    }
+
+    if (
+      err?.code === 'auth/wrong-password' ||
+      err?.code === 'auth/invalid-credential' ||
+      err?.code === 'auth/user-not-found'
+    ) {
+      throw new Error('Login ou senha incorretos.');
+    }
+
+    throw err;
+  }
+}
+
+/**
+ * Sincroniza o registro do administrador no Firestore (admins/{uid})
+ * Registra apenas dados de autorização: uid, role, login, active, createdAt.
+ * NUNCA salva senha, password ou criptografia manual de senha.
+ */
+async function syncAdminProfile(uid: string, login: string): Promise<void> {
+  try {
+    const adminDocRef = doc(db, ADMINS_COLLECTION, uid);
+    const snap = await getDoc(adminDocRef);
+    if (!snap.exists()) {
+      await setDoc(adminDocRef, {
+        uid,
+        role: 'admin',
+        login,
+        active: true,
+        createdAt: new Date().toISOString()
+      });
+    } else {
+      await updateDoc(adminDocRef, {
+        active: true,
+        lastLogin: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Registro de permissão admin salvo no Firestore:', err);
+  }
+}
+
+/**
+ * Logout administrator from Firebase Auth
+ */
+export async function logoutAdmin(): Promise<void> {
+  await signOut(auth);
+}
 
 /**
  * Check if Admin is already configured in Firebase
  */
-export async function getAdminConfigStatus(): Promise<{ isConfigured: boolean; email?: string }> {
+export async function getAdminConfigStatus(): Promise<{ isConfigured: boolean; identifier?: string }> {
   try {
     const configDocRef = doc(db, ADMIN_CONFIG_COLLECTION, 'main');
     const docSnap = await getDoc(configDocRef);
     if (docSnap.exists()) {
       const data = docSnap.data() as AdminConfig;
-      return { isConfigured: !!data.configured, email: data.adminEmail };
+      return { isConfigured: !!data.configured, identifier: data.adminIdentifier };
     }
     return { isConfigured: false };
   } catch (err) {
@@ -45,11 +174,11 @@ export async function getAdminConfigStatus(): Promise<{ isConfigured: boolean; e
 /**
  * Record Admin configured status in Firebase
  */
-export async function setAdminConfigured(adminEmail: string): Promise<void> {
+export async function setAdminConfigured(adminIdentifier: string): Promise<void> {
   const configDocRef = doc(db, ADMIN_CONFIG_COLLECTION, 'main');
   await setDoc(configDocRef, {
     configured: true,
-    adminEmail,
+    adminIdentifier,
     createdAt: new Date().toISOString()
   });
 }
@@ -114,6 +243,17 @@ export function subscribeToServices(callback: (services: Service[]) => void) {
 }
 
 /**
+ * Upload Service Image to Firebase Storage
+ */
+export async function uploadServiceImage(file: File): Promise<string> {
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const fileRef = ref(storage, `services/${timestamp}_${safeName}`);
+  const snapshot = await uploadBytes(fileRef, file);
+  return await getDownloadURL(snapshot.ref);
+}
+
+/**
  * Service Management (CRUD for Admin Area)
  */
 export async function createService(newService: Omit<Service, 'id'>): Promise<string> {
@@ -137,6 +277,9 @@ export async function updateService(serviceId: string, updates: Partial<Service>
   });
 }
 
+/**
+ * Logical deactivation or reactivation of a service
+ */
 export async function toggleServiceStatus(serviceId: string, active: boolean): Promise<void> {
   const docRef = doc(db, SERVICES_COLLECTION, serviceId);
   await updateDoc(docRef, {
@@ -146,9 +289,16 @@ export async function toggleServiceStatus(serviceId: string, active: boolean): P
 }
 
 /**
- * CAROUSEL MANAGEMENT (Firestore + Firebase Storage / URLs)
+ * Permanent removal of a service (if requested)
  */
+export async function deleteService(serviceId: string): Promise<void> {
+  const docRef = doc(db, SERVICES_COLLECTION, serviceId);
+  await deleteDoc(docRef);
+}
 
+/**
+ * CAROUSEL MANAGEMENT (Firestore + Firebase Storage)
+ */
 export async function seedCarouselIfEmpty(): Promise<CarouselImageItem[]> {
   try {
     const carouselRef = collection(db, CAROUSEL_COLLECTION);
@@ -224,32 +374,27 @@ export function subscribeToCarousel(callback: (images: CarouselImageItem[]) => v
 /**
  * Upload an image file to Firebase Storage and add to Carousel collection
  */
-export async function uploadCarouselImage(file: File, currentCount: number): Promise<string> {
-  try {
-    const timestamp = Date.now();
-    const fileName = `carousel_${timestamp}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const storageRef = ref(storage, `carousel/${fileName}`);
-    
-    // Upload bytes to Firebase Storage
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadUrl = await getDownloadURL(snapshot.ref);
+export async function uploadCarouselImage(file: File, currentCount: number, title?: string): Promise<string> {
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const storagePath = `carousel/${timestamp}_${safeName}`;
+  const storageRef = ref(storage, storagePath);
+  
+  const snapshot = await uploadBytes(storageRef, file);
+  const downloadUrl = await getDownloadURL(snapshot.ref);
 
-    // Save to Firestore
-    const newDocRef = doc(collection(db, CAROUSEL_COLLECTION));
-    const newImage: CarouselImageItem = {
-      id: newDocRef.id,
-      url: downloadUrl,
-      order: currentCount,
-      active: true,
-      title: file.name,
-      createdAt: new Date().toISOString()
-    };
-    await setDoc(newDocRef, newImage);
-    return newDocRef.id;
-  } catch (err) {
-    console.error('Erro no upload para Firebase Storage:', err);
-    throw err;
-  }
+  const newDocRef = doc(collection(db, CAROUSEL_COLLECTION));
+  const newImage: CarouselImageItem = {
+    id: newDocRef.id,
+    url: downloadUrl,
+    order: currentCount,
+    active: true,
+    title: title || file.name,
+    storageRefPath: storagePath,
+    createdAt: new Date().toISOString()
+  };
+  await setDoc(newDocRef, newImage);
+  return newDocRef.id;
 }
 
 /**
@@ -262,11 +407,49 @@ export async function addCarouselImageUrl(url: string, currentCount: number, tit
     url: url.trim(),
     order: currentCount,
     active: true,
-    title: title || 'Nova foto',
+    title: title || `Foto ${currentCount + 1}`,
     createdAt: new Date().toISOString()
   };
   await setDoc(newDocRef, newImage);
   return newDocRef.id;
+}
+
+/**
+ * Replace an image in the carousel with a new URL or file, PRESERVING its exact position/order.
+ */
+export async function replaceCarouselImage(
+  id: string,
+  newUrl: string,
+  title?: string,
+  newStoragePath?: string
+): Promise<void> {
+  const docRef = doc(db, CAROUSEL_COLLECTION, id);
+  const updates: Partial<CarouselImageItem> = {
+    url: newUrl.trim(),
+    updatedAt: new Date().toISOString()
+  };
+  if (title) updates.title = title;
+  if (newStoragePath) updates.storageRefPath = newStoragePath;
+  await updateDoc(docRef, updates);
+}
+
+/**
+ * Upload file and replace existing image in carousel
+ */
+export async function uploadAndReplaceCarouselImage(
+  id: string,
+  file: File,
+  title?: string
+): Promise<void> {
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const storagePath = `carousel/${timestamp}_${safeName}`;
+  const storageRef = ref(storage, storagePath);
+  
+  const snapshot = await uploadBytes(storageRef, file);
+  const downloadUrl = await getDownloadURL(snapshot.ref);
+
+  await replaceCarouselImage(id, downloadUrl, title || file.name, storagePath);
 }
 
 /**
@@ -278,11 +461,20 @@ export async function toggleCarouselImageActive(id: string, active: boolean): Pr
 }
 
 /**
- * Delete image from carousel collection
+ * Delete image from carousel collection and Storage
  */
-export async function deleteCarouselImage(id: string): Promise<void> {
+export async function deleteCarouselImage(id: string, storageRefPath?: string): Promise<void> {
   const docRef = doc(db, CAROUSEL_COLLECTION, id);
   await deleteDoc(docRef);
+
+  if (storageRefPath) {
+    try {
+      const storageRef = ref(storage, storageRefPath);
+      await deleteObject(storageRef);
+    } catch (err) {
+      console.warn('Could not delete file from Firebase Storage:', err);
+    }
+  }
 }
 
 /**
@@ -326,7 +518,6 @@ export async function blockSlotAsAdmin(data: {
     updatedAt: nowIso
   };
 
-  // Update day locks
   const dayLockDocId = `lock_${data.date}`;
   const dayLockRef = doc(db, SLOT_LOCKS_COLLECTION, dayLockDocId);
 
@@ -355,13 +546,11 @@ export async function cancelAppointmentAndFreeSlot(appointment: Appointment): Pr
   const aptRef = doc(db, APPOINTMENTS_COLLECTION, appointment.id);
   const nowIso = new Date().toISOString();
 
-  // Update status to cancelled
   await updateDoc(aptRef, {
     status: 'cancelled',
     updatedAt: nowIso
   });
 
-  // Free from day lock document so it becomes available immediately
   try {
     const dayLockDocId = `lock_${appointment.date}`;
     const dayLockRef = doc(db, SLOT_LOCKS_COLLECTION, dayLockDocId);
@@ -393,18 +582,12 @@ export function minutesToTimeString(minutes: number): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
 
-/**
- * Calculates end time based on start time and service duration
- */
 export function calculateEndTime(startTime: string, durationMinutes: number): string {
   const startMin = timeStringToMinutes(startTime);
   const endMin = startMin + durationMinutes;
   return minutesToTimeString(endMin);
 }
 
-/**
- * Checks whether two time ranges [start1, end1) and [start2, end2) overlap
- */
 export function isOverlapping(
   startA: string,
   endA: string,
@@ -435,7 +618,6 @@ export function subscribeToAppointmentsForDate(
     const appointments: Appointment[] = [];
     snapshot.forEach(docSnap => {
       const data = docSnap.data() as Appointment;
-      // Exclude cancelled appointments so cancelled slots are immediately available
       if (data.status !== 'cancelled') {
         appointments.push({ ...data, id: docSnap.id });
       }
@@ -493,14 +675,14 @@ export function computeSlotAvailability(
 }
 
 /**
- * CRITICAL DOUBLE-BOOKING PREVENTION
- * Uses atomic transaction to safely lock and create the appointment.
+ * Atomic transaction to safely lock and create the appointment.
  */
 export async function bookAppointmentAtomically(appointmentData: {
   customerName: string;
   customerPhone: string;
-  serviceId: string;
+  serviceId?: string;
   serviceName: string;
+  services?: Array<{ id: string; name: string; price: number; duration: number }>;
   serviceDuration: number;
   servicePrice: number;
   date: string;
@@ -509,7 +691,6 @@ export async function bookAppointmentAtomically(appointmentData: {
   const endTime = calculateEndTime(appointmentData.startTime, appointmentData.serviceDuration);
   const endMin = timeStringToMinutes(endTime);
 
-  // Validate closing boundary
   if (endMin > CLOSING_TIME_MINUTES) {
     return {
       success: false,
@@ -526,14 +707,12 @@ export async function bookAppointmentAtomically(appointmentData: {
       const lockDocSnap = await transaction.get(dayLockRef);
       const existingLocks = lockDocSnap.exists() ? (lockDocSnap.data()?.slots || []) : [];
 
-      // Check if any registered locked interval overlaps
       for (const item of existingLocks) {
         if (isOverlapping(appointmentData.startTime, endTime, item.startTime, item.endTime)) {
           throw new Error('SLOT_ALREADY_TAKEN');
         }
       }
 
-      // Prepare new lock item
       const nowIso = new Date().toISOString();
       const updatedLocks = [
         ...existingLocks,
@@ -545,13 +724,13 @@ export async function bookAppointmentAtomically(appointmentData: {
         }
       ];
 
-      // Prepare appointment record
       const fullAppointment: Appointment = {
         id: newAppointmentRef.id,
         customerName: appointmentData.customerName.trim(),
         customerPhone: appointmentData.customerPhone.trim(),
-        serviceId: appointmentData.serviceId,
+        serviceId: appointmentData.serviceId || '',
         serviceName: appointmentData.serviceName,
+        services: appointmentData.services,
         serviceDuration: appointmentData.serviceDuration,
         servicePrice: appointmentData.servicePrice,
         date: appointmentData.date,
@@ -562,7 +741,6 @@ export async function bookAppointmentAtomically(appointmentData: {
         updatedAt: nowIso
       };
 
-      // Atomic writes
       transaction.set(dayLockRef, { date: appointmentData.date, slots: updatedLocks, updatedAt: nowIso }, { merge: true });
       transaction.set(newAppointmentRef, fullAppointment);
 

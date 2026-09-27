@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "Service": {
+      "title": "Service",
+      "description": "Barbershop service offering",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Service unique identifier" },
+        "name": { "type": "string", "description": "Service name" },
+        "description": { "type": "string", "description": "Service description" },
+        "price": { "type": "number", "description": "Price in BRL" },
+        "duration": { "type": "number", "description": "Duration in minutes" },
+        "active": { "type": "boolean", "description": "Whether service is active" },
+        "highlight": { "type": "boolean", "description": "Whether service is highlighted" },
+        "highlightText": { "type": "string", "description": "Highlight banner text" },
+        "iconName": { "type": "string", "description": "Icon identifier" },
+        "imageUrl": { "type": "string", "description": "Custom image URL or Firebase Storage URL" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["name", "price", "duration", "active"]
+    },
+    "CarouselImage": {
+      "title": "CarouselImage",
+      "description": "Image displayed in the public gallery carousel",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Image unique identifier" },
+        "url": { "type": "string", "description": "Image URL from Storage or direct link" },
+        "order": { "type": "number", "description": "Display order in carousel" },
+        "active": { "type": "boolean", "description": "Whether the image is active" },
+        "title": { "type": "string", "description": "Optional title or caption" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["url", "order", "active"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Customer booking appointment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Appointment ID" },
+        "customerName": { "type": "string", "description": "Full name of the customer" },
+        "customerPhone": { "type": "string", "description": "WhatsApp phone number" },
+        "serviceId": { "type": "string", "description": "Selected primary service ID" },
+        "serviceName": { "type": "string", "description": "Name of service or comma-separated services" },
+        "serviceDuration": { "type": "number", "description": "Total duration in minutes" },
+        "servicePrice": { "type": "number", "description": "Total price in BRL" },
+        "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "description": "Booking date YYYY-MM-DD" },
+        "startTime": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}$", "description": "Start time HH:mm" },
+        "endTime": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}$", "description": "End time HH:mm" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"], "description": "Appointment status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["customerName", "customerPhone", "date", "startTime", "endTime", "status"]
+    },
+    "SlotLock": {
+      "title": "SlotLock",
+      "description": "Daily double-booking lock registry",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "Date of locks" },
+        "slots": { "type": "array", "description": "List of locked intervals" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["date"]
+    },
+    "AdminProfile": {
+      "title": "AdminProfile",
+      "description": "Administrator profile record",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "phone": { "type": "string", "description": "Admin phone number" },
+        "email": { "type": "string", "description": "Admin internal email" },
+        "role": { "type": "string", "enum": ["admin"], "description": "Role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["role"]
+    }
+  },
+  "firestore": {
+    "/services/{serviceId}": {
+      "schema": { "$ref": "#/entities/Service" },
+      "description": "Barbershop catalog of active and archived services"
+    },
+    "/carousel/{imageId}": {
+      "schema": { "$ref": "#/entities/CarouselImage" },
+      "description": "Public gallery carousel images"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/Appointment" },
+      "description": "Customer bookings and administrative blocks"
+    },
+    "/slot_locks/{dateLockId}": {
+      "schema": { "$ref": "#/entities/SlotLock" },
+      "description": "Atomic day-level booking conflict registry"
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminProfile" },
+      "description": "Authorized administrator user documents"
+    }
+  }
+}
