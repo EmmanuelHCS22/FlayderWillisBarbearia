@@ -6,10 +6,11 @@ import {
   computeSlotAvailability,
   bookAppointmentAtomically,
   generateWhatsAppUrl,
+  buildWhatsAppAppointmentText,
   calculateEndTime
 } from '../services/bookingService';
 import { PremiumIcon } from './PremiumIcon';
-import { Clock, AlertTriangle, User, Phone, ArrowRight, Check } from 'lucide-react';
+import { AlertTriangle, User, Phone, ArrowRight, Copy, Check, ExternalLink } from 'lucide-react';
 
 interface BookingFlowProps {
   services: Service[];
@@ -35,6 +36,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [copied, setCopied] = useState(false);
 
   // Live state from appointments
   const [appointmentsOnDate, setAppointmentsOnDate] = useState<Appointment[]>([]);
@@ -53,7 +55,6 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
   const activeServices = services.filter(s => s.active !== false);
 
   // Real-time subscription to appointments for the chosen date
-  // CRITICAL: When date changes, appointments are fetched specifically for that date
   useEffect(() => {
     if (!selectedDate) return;
     const unsubscribe = subscribeToAppointmentsForDate(selectedDate, (apts) => {
@@ -62,7 +63,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     return () => unsubscribe();
   }, [selectedDate]);
 
-  // Whenever date or duration changes, reset selected time if it becomes invalid or date changed
+  // Whenever date or duration changes, recalculate slot availability
   const serviceDuration = selectedService ? selectedService.duration : 45;
   const availableSlots = computeSlotAvailability(BASE_TIME_SLOTS, appointmentsOnDate, serviceDuration);
 
@@ -120,8 +121,8 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
 
     // Call atomic transaction
     const result = await bookAppointmentAtomically({
-      customerName,
-      customerPhone,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
       serviceId: selectedService.id,
       serviceName: selectedService.name,
       serviceDuration: selectedService.duration,
@@ -133,33 +134,43 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     setIsSubmitting(false);
 
     if (result.success && result.appointmentId) {
-      setConfirmedBooking({
+      const confirmed = {
         id: result.appointmentId,
         serviceName: selectedService.name,
         servicePrice: selectedService.price,
         date: selectedDate,
         startTime: selectedTime,
         customerName: customerName.trim(),
-      });
+      };
+      setConfirmedBooking(confirmed);
+
+      // Scroll to confirmation view smoothly
+      const el = document.getElementById('agendamento');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
     } else {
       setBookingError(result.error || 'Esse horário acabou de ser reservado. Escolha outro horário disponível.');
     }
   };
 
-  const handleOpenWhatsApp = () => {
+  const handleCopyMessage = () => {
     if (!confirmedBooking) return;
-    const url = generateWhatsAppUrl(confirmedBooking);
-    window.location.href = url;
+    const text = buildWhatsAppAppointmentText(confirmedBooking);
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
   };
 
-  // If confirmed, display the official confirmation screen with WhatsApp trigger
+  // If confirmed, display the official confirmation screen with WhatsApp action
   if (confirmedBooking) {
-    const [y, m, d] = confirmedBooking.date.split('-');
-    const formattedDate = `${d}/${m}/${y}`;
+    const dateParts = confirmedBooking.date.split('-');
+    const formattedDate = dateParts.length === 3 
+      ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` 
+      : confirmedBooking.date;
     const calculatedEnd = calculateEndTime(
       confirmedBooking.startTime,
       selectedService?.duration || 45
     );
+    const whatsappLinkUrl = generateWhatsAppUrl(confirmedBooking);
 
     return (
       <section id="agendamento" className="w-full max-w-md mx-auto px-4 py-8 scroll-mt-14">
@@ -199,28 +210,51 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
               </span>
             </div>
             <div className="flex justify-between items-center text-sm pt-1">
-              <span className="text-zinc-400">Valor Total:</span>
+              <span className="text-zinc-400">Valor:</span>
               <span className="font-bold text-lg text-[#F1D77A]">
                 R$ {confirmedBooking.servicePrice.toFixed(2).replace('.', ',')}
               </span>
             </div>
           </div>
 
-          {/* WhatsApp Direct Action Button using wa.link/h86l37 */}
-          <button
-            onClick={handleOpenWhatsApp}
-            className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_6px_20px_rgba(37,211,102,0.4)] hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
+          {/* Direct WhatsApp Action Link with PRE-FILLED TEXT */}
+          <a
+            href={whatsappLinkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_6px_20px_rgba(37,211,102,0.4)] hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer select-none no-underline"
           >
             <PremiumIcon name="whatsapp" size={24} />
-            <span>Continuar no WhatsApp</span>
-          </button>
+            <span>CONTINUAR NO WHATSAPP</span>
+          </a>
+
+          {/* Fallback alternatives: Copy message & re-open button */}
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              onClick={handleCopyMessage}
+              className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-zinc-300 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+              <span>{copied ? 'Mensagem Copiada!' : 'Copiar Mensagem'}</span>
+            </button>
+            <a
+              href={whatsappLinkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-zinc-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              title="Abrir WhatsApp Novamente"
+            >
+              <ExternalLink size={14} />
+              <span>Reabrir</span>
+            </a>
+          </div>
 
           <button
             onClick={() => {
               setConfirmedBooking(null);
               setSelectedTime(null);
             }}
-            className="w-full mt-3 py-2 text-xs text-zinc-400 hover:text-white uppercase tracking-wider transition-colors cursor-pointer"
+            className="w-full mt-4 py-2 text-xs text-zinc-400 hover:text-white uppercase tracking-wider transition-colors cursor-pointer"
           >
             Agendar outro serviço
           </button>
@@ -245,7 +279,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
       </div>
 
       <form onSubmit={handleBookingSubmit} className="space-y-5">
-        {/* Step 1: Service Selection with easy switch or clear */}
+        {/* Step 1: Service Selection */}
         <div className="bg-[#0A0A0A] border border-[#D4AF37]/25 rounded-2xl p-4 shadow-md">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
@@ -437,7 +471,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
                 <span className="text-white font-medium">{selectedDate.split('-').reverse().join('/')} às {selectedTime}</span>
               </div>
               <div className="flex justify-between pt-1 border-t border-white/5">
-                <span className="text-zinc-300 font-semibold">Valor Total:</span>
+                <span className="text-zinc-300 font-semibold">Valor:</span>
                 <span className="text-[#F1D77A] font-bold text-sm">
                   R$ {selectedService.price.toFixed(2).replace('.', ',')}
                 </span>

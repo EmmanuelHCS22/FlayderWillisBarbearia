@@ -1,13 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Services collection: public read, write for setup/admin
+    // Services collection: public read, write for admin/system
     match /services/{serviceId} {
       allow read: if true;
       allow write: if true;
     }
 
-    // Settings collection: public read, write for setup/admin
+    // Carousel collection: public read, write for admin/system
+    match /carousel/{imageId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Admin setup / config flag
+    match /admin_config/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Settings collection
     match /settings/{settingId} {
       allow read: if true;
       allow write: if true;
@@ -19,9 +31,7 @@ service cloud.firestore {
       allow write: if true;
     }
 
-    // Appointments collection:
-    // Clients can read appointments for availability check, create with valid data
-    // Admin can update/cancel
+    // Appointments collection
     match /appointments/{appointmentId} {
       allow read: if true;
       allow create: if request.resource.data.customerName is string

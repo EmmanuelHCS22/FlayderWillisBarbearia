@@ -9,6 +9,7 @@ export interface Service {
   highlightText?: string;
   category?: string;
   iconName?: string;
+  imageUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -38,15 +39,31 @@ export interface DaySlot {
   reason?: string;
 }
 
+export interface CarouselImageItem {
+  id: string;
+  url: string;
+  order: number;
+  active: boolean;
+  title?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AdminConfig {
+  configured: boolean;
+  adminEmail: string;
+  createdAt: string;
+}
+
 export interface BusinessSettings {
   name: string;
   tagline: string;
   subtagline: string;
-  whatsappNumber: string; // e.g. "5531999999999" or wa.link url
+  whatsappNumber: string;
   whatsappLink: string;
   instagramUrl: string;
   logoUrl: string;
-  openTime: string; // "08:00"
-  closeTime: string; // "19:30"
-  slotIntervalMinutes: number; // 45
+  openTime: string;
+  closeTime: string;
+  slotIntervalMinutes: number;
 }

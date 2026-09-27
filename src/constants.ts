@@ -82,7 +82,7 @@ export const DEFAULT_SERVICES = [
   }
 ];
 
-export const CAROUSEL_IMAGES = [
+export const DEFAULT_CAROUSEL_IMAGES = [
   'https://i.imgur.com/qKt59kb.png',
   'https://i.imgur.com/91tjeYd.png',
   'https://i.imgur.com/4kHpeCy.png',
@@ -97,11 +97,13 @@ export const CAROUSEL_IMAGES = [
 ];
 
 export const LOGO_URL = 'https://i.imgur.com/g2Q8VMo.png';
+export const HEADER_BANNER_URL = 'https://i.imgur.com/RYZPqQd.jpeg';
 export const WHATSAPP_URL = 'https://wa.link/h86l37';
+export const WHATSAPP_PHONE_NUMBER = '553492504146';
 export const INSTAGRAM_URL = 'https://www.instagram.com/flayderwillisbarbearia?utm_source=ig_web_button_share_sheet&stkn=ZDNlZDc0MzIxNw==';
+export const GOOGLE_REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJiWS6ZJRDpJQRzo83bf_UkGc';
 
-// Base time slots defined in requirements:
-// 08:00, 08:45, 09:30, 10:15, 11:00, 11:45, 12:30, 13:15, 14:00, 14:45, 15:30, 16:15, 17:00, 17:45, 18:30, 19:15
+// Base time slots:
 export const BASE_TIME_SLOTS = [
   '08:00',
   '08:45',
