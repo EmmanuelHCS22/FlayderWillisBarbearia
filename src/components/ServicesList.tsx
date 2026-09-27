@@ -1,34 +1,45 @@
 import React from 'react';
 import { Service } from '../types';
 import { PremiumIcon } from './PremiumIcon';
-import { Clock } from 'lucide-react';
+import { Clock, Check } from 'lucide-react';
 
 interface ServicesListProps {
   services: Service[];
   selectedServiceId: string | null;
-  onSelectService: (service: Service) => void;
+  onToggleService: (service: Service) => void;
   isLoading: boolean;
 }
 
 export const ServicesList: React.FC<ServicesListProps> = ({
   services,
   selectedServiceId,
-  onSelectService,
+  onToggleService,
   isLoading
 }) => {
   const mapIcon = (service: Service) => {
-    switch (service.id) {
-      case 'corte': return 'scissors';
-      case 'barba': return 'beard';
-      case 'corte-barba': return 'combo';
-      case 'selagem': return 'hair';
-      case 'alisamento': return 'straight';
-      case 'platinado': return 'platinum';
-      case 'sobrancelha': return 'eyebrow';
-      case 'pintura': return 'dye';
+    switch (service.iconName || service.id) {
+      case 'corte':
+      case 'scissors': return 'scissors';
+      case 'barba':
+      case 'beard': return 'beard';
+      case 'corte-barba':
+      case 'combo': return 'combo';
+      case 'selagem':
+      case 'hair': return 'hair';
+      case 'alisamento':
+      case 'straight': return 'straight';
+      case 'platinado':
+      case 'platinum': return 'platinum';
+      case 'sobrancelha':
+      case 'eyebrow': return 'eyebrow';
+      case 'pintura':
+      case 'dye': return 'dye';
       default: return 'scissors';
     }
   };
+
+  // Only display active services for clients
+  const activeServices = services.filter((s) => s.active !== false);
 
   return (
     <section id="servicos" className="w-full max-w-md mx-auto px-4 py-6 scroll-mt-14">
@@ -41,7 +52,7 @@ export const ServicesList: React.FC<ServicesListProps> = ({
         </h2>
         <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mx-auto mt-2" />
         <p className="text-xs text-zinc-400 mt-2">
-          Carregados diretamente do banco de dados centralizado Firebase
+          Toque para selecionar o serviço desejado ou toque novamente para desmarcar.
         </p>
       </div>
 
@@ -54,19 +65,23 @@ export const ServicesList: React.FC<ServicesListProps> = ({
             />
           ))}
         </div>
+      ) : activeServices.length === 0 ? (
+        <div className="text-center py-8 text-xs text-zinc-500 bg-[#0A0A0A] rounded-xl border border-zinc-800">
+          Nenhum serviço disponível no momento.
+        </div>
       ) : (
         <div className="space-y-3.5">
-          {services.map((service) => {
+          {activeServices.map((service) => {
             const isSelected = selectedServiceId === service.id;
 
             return (
               <div
                 key={service.id}
-                onClick={() => onSelectService(service)}
-                className={`relative group cursor-pointer rounded-xl p-4 transition-all duration-300 border ${
+                onClick={() => onToggleService(service)}
+                className={`relative group cursor-pointer rounded-2xl p-4 transition-all duration-300 border ${
                   isSelected
-                    ? 'bg-gradient-to-br from-[#121212] via-[#0A0A0A] to-[#1a1608] border-[#F1D77A] shadow-[0_0_20px_rgba(212,175,55,0.25)] ring-1 ring-[#F1D77A]'
-                    : 'bg-[#0A0A0A]/90 hover:bg-[#121212] border-[#D4AF37]/25 hover:border-[#D4AF37]/60 shadow-[0_4px_12px_rgba(0,0,0,0.6)]'
+                    ? 'bg-gradient-to-br from-[#181406] via-[#0E0C05] to-[#1a1506] border-[#F1D77A] shadow-[0_0_25px_rgba(212,175,55,0.35)] ring-1 ring-[#F1D77A]'
+                    : 'bg-[#0A0A0A]/95 hover:bg-[#121212] border-[#D4AF37]/25 hover:border-[#D4AF37]/50 shadow-[0_4px_16px_rgba(0,0,0,0.7)]'
                 }`}
               >
                 {/* Highlight ribbon for combo/featured */}
@@ -79,12 +94,18 @@ export const ServicesList: React.FC<ServicesListProps> = ({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3.5">
                     {/* 3D Icon container */}
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#151515] to-[#050505] border border-[#D4AF37]/30 flex items-center justify-center shrink-0 shadow-inner group-hover:border-[#D4AF37]/70 transition-colors">
+                    <div className={`w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 shadow-inner transition-colors ${
+                      isSelected
+                        ? 'bg-gradient-to-br from-[#2a220a] to-[#120f04] border-[#F1D77A]'
+                        : 'bg-gradient-to-br from-[#151515] to-[#050505] border-[#D4AF37]/30 group-hover:border-[#D4AF37]/60'
+                    }`}>
                       <PremiumIcon name={mapIcon(service)} size={26} />
                     </div>
 
                     <div>
-                      <h3 className="font-serif font-bold text-base text-zinc-100 group-hover:text-[#F1D77A] transition-colors">
+                      <h3 className={`font-serif font-bold text-base transition-colors ${
+                        isSelected ? 'text-[#F1D77A]' : 'text-zinc-100 group-hover:text-[#F1D77A]'
+                      }`}>
                         {service.name}
                       </h3>
                       <p className="text-xs text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
@@ -97,21 +118,33 @@ export const ServicesList: React.FC<ServicesListProps> = ({
                     </div>
                   </div>
 
-                  {/* Price & Selection indicator */}
+                  {/* Price & Selection Interactive Toggle Button */}
                   <div className="text-right shrink-0">
-                    <span className="text-xs text-zinc-400 font-light">A partir de</span>
+                    <span className="text-[11px] text-zinc-400 font-light block">Valor</span>
                     <div className="text-lg font-bold text-[#F1D77A] font-serif">
                       R$ {service.price.toFixed(2).replace('.', ',')}
                     </div>
+                    
                     <button
                       type="button"
-                      className={`mt-2 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-md transition-all ${
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleService(service);
+                      }}
+                      className={`mt-2 text-[11px] uppercase font-bold tracking-wider px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
                         isSelected
-                          ? 'bg-[#D4AF37] text-black shadow-[0_0_10px_rgba(212,175,55,0.5)]'
-                          : 'bg-white/5 text-zinc-300 border border-white/10 group-hover:border-[#D4AF37]/40'
+                          ? 'bg-gradient-to-r from-[#D4AF37] to-[#F1D77A] text-black shadow-[0_0_12px_rgba(212,175,55,0.6)]'
+                          : 'bg-white/5 text-zinc-300 border border-white/15 hover:border-[#D4AF37]/50 hover:bg-white/10'
                       }`}
                     >
-                      {isSelected ? 'Selecionado' : 'Escolher'}
+                      {isSelected ? (
+                        <>
+                          <Check size={12} className="stroke-[3]" />
+                          <span>SELECIONADO</span>
+                        </>
+                      ) : (
+                        <span>SELECIONAR</span>
+                      )}
                     </button>
                   </div>
                 </div>

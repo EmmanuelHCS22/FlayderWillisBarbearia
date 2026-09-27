@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  updateDoc,
   writeBatch,
   query,
   where,
@@ -19,7 +20,6 @@ const SLOT_LOCKS_COLLECTION = 'slot_locks';
 
 /**
  * Ensures services are seeded in Firestore if not already present.
- * The services in Firestore will be the single source of truth.
  */
 export async function seedServicesIfEmpty(): Promise<Service[]> {
   try {
@@ -51,14 +51,13 @@ export async function seedServicesIfEmpty(): Promise<Service[]> {
     });
     return services;
   } catch (error) {
-    console.error('Error fetching or seeding services from Firebase:', error);
-    // If permission or network error, return local as fallback
+    console.error('Erro ao buscar serviços:', error);
     return DEFAULT_SERVICES;
   }
 }
 
 /**
- * Subscribes to live services from Firestore
+ * Subscribes to live services from Firestore (all services for admin, active only filtered on client)
  */
 export function subscribeToServices(callback: (services: Service[]) => void) {
   const servicesRef = collection(db, SERVICES_COLLECTION);
@@ -73,8 +72,40 @@ export function subscribeToServices(callback: (services: Service[]) => void) {
       callback(services);
     }
   }, (err) => {
-    console.error('Error listening to services:', err);
+    console.error('Erro ao carregar serviços:', err);
     callback(DEFAULT_SERVICES);
+  });
+}
+
+/**
+ * Service Management (CRUD for Admin Area)
+ */
+export async function createService(newService: Omit<Service, 'id'>): Promise<string> {
+  const newDocRef = doc(collection(db, SERVICES_COLLECTION));
+  const now = new Date().toISOString();
+  const serviceData: Service = {
+    ...newService,
+    id: newDocRef.id,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await setDoc(newDocRef, serviceData);
+  return newDocRef.id;
+}
+
+export async function updateService(serviceId: string, updates: Partial<Service>): Promise<void> {
+  const docRef = doc(db, SERVICES_COLLECTION, serviceId);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+export async function toggleServiceStatus(serviceId: string, active: boolean): Promise<void> {
+  const docRef = doc(db, SERVICES_COLLECTION, serviceId);
+  await updateDoc(docRef, {
+    active,
+    updatedAt: new Date().toISOString()
   });
 }
 
@@ -142,7 +173,7 @@ export function subscribeToAppointmentsForDate(
     });
     callback(appointments);
   }, (err) => {
-    console.error('Error listening to appointments:', err);
+    console.error('Erro ao verificar horários:', err);
   });
 }
 
@@ -166,7 +197,7 @@ export function computeSlotAvailability(
         time: slotTime,
         formatted: slotTime,
         available: false,
-        reason: 'Ultrapassa o horário de fechamento (19:30)'
+        reason: 'Ultrapassa o horário de encerramento (19:30)'
       };
     }
 
@@ -180,7 +211,7 @@ export function computeSlotAvailability(
         time: slotTime,
         formatted: slotTime,
         available: false,
-        reason: `Ocupado (${conflict.startTime} - ${conflict.endTime})`
+        reason: `Horário reservado (${conflict.startTime} - ${conflict.endTime})`
       };
     }
 
@@ -194,9 +225,7 @@ export function computeSlotAvailability(
 
 /**
  * CRITICAL DOUBLE-BOOKING PREVENTION
- * Uses atomic Firestore transaction to safely lock and create the appointment.
- * Verifies that neither the exact slot lock exists nor does any appointment on that day
- * overlap with the proposed [startTime, endTime) interval.
+ * Uses atomic transaction to safely lock and create the appointment.
  */
 export async function bookAppointmentAtomically(appointmentData: {
   customerName: string;
@@ -219,15 +248,12 @@ export async function bookAppointmentAtomically(appointmentData: {
     };
   }
 
-  // Daily schedule lock doc ID to serialize or check day concurrency
   const dayLockDocId = `lock_${appointmentData.date}`;
   const dayLockRef = doc(db, SLOT_LOCKS_COLLECTION, dayLockDocId);
   const newAppointmentRef = doc(collection(db, APPOINTMENTS_COLLECTION));
 
   try {
     const result = await runTransaction(db, async (transaction) => {
-      // 1. Read existing appointments for this date inside the transaction context
-      // In Firestore transactions, we first read the lock document for this day
       const lockDocSnap = await transaction.get(dayLockRef);
       const existingLocks = lockDocSnap.exists() ? (lockDocSnap.data()?.slots || []) : [];
 
@@ -238,7 +264,7 @@ export async function bookAppointmentAtomically(appointmentData: {
         }
       }
 
-      // 2. Prepare new lock item
+      // Prepare new lock item
       const nowIso = new Date().toISOString();
       const updatedLocks = [
         ...existingLocks,
@@ -250,7 +276,7 @@ export async function bookAppointmentAtomically(appointmentData: {
         }
       ];
 
-      // 3. Prepare appointment record
+      // Prepare appointment record
       const fullAppointment: Appointment = {
         id: newAppointmentRef.id,
         customerName: appointmentData.customerName.trim(),
@@ -267,7 +293,7 @@ export async function bookAppointmentAtomically(appointmentData: {
         updatedAt: nowIso
       };
 
-      // 4. Atomic writes
+      // Atomic writes
       transaction.set(dayLockRef, { date: appointmentData.date, slots: updatedLocks, updatedAt: nowIso }, { merge: true });
       transaction.set(newAppointmentRef, fullAppointment);
 
@@ -282,19 +308,20 @@ export async function bookAppointmentAtomically(appointmentData: {
     if (err?.message === 'SLOT_ALREADY_TAKEN') {
       return {
         success: false,
-        error: 'Esse horário acabou de ser reservado. Por favor, escolha outro horário.'
+        error: 'Esse horário acabou de ser reservado. Escolha outro horário disponível.'
       };
     }
-    console.error('Transaction booking error:', err);
+    console.error('Erro na transação de agendamento:', err);
     return {
       success: false,
-      error: err?.message || 'Erro ao confirmar agendamento no Firestore. Tente novamente.'
+      error: 'Não foi possível confirmar o agendamento neste momento. Por favor, tente novamente.'
     };
   }
 }
 
 /**
  * Generate formatted WhatsApp message URL
+ * Utiliza EXCLUSIVAMENTE o link https://wa.link/h86l37
  */
 export function generateWhatsAppUrl(appointment: {
   serviceName: string;
@@ -303,7 +330,6 @@ export function generateWhatsAppUrl(appointment: {
   servicePrice: number;
   customerName: string;
 }): string {
-  // Format date to Brazilian DD/MM/YYYY
   const [year, month, day] = appointment.date.split('-');
   const formattedDate = `${day}/${month}/${year}`;
   const formattedPrice = appointment.servicePrice.toFixed(2).replace('.', ',');

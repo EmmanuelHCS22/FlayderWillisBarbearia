@@ -8,7 +8,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { PremiumIcon } from './components/PremiumIcon';
 import { Service } from './types';
 import { subscribeToServices } from './services/bookingService';
-import { Calendar, Shield, ExternalLink, Lock } from 'lucide-react';
+import { Calendar, ExternalLink, Lock } from 'lucide-react';
 
 export default function App() {
   const [services, setServices] = useState<Service[]>([]);
@@ -17,7 +17,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking'>('home');
   const [isAdminOpen, setIsAdminOpen] = useState(false);
 
-  // Subscribe to live Firestore services
+  // Subscribe to live Firestore services internally
   useEffect(() => {
     const unsubscribe = subscribeToServices((fetchedServices) => {
       setServices(fetchedServices);
@@ -27,12 +27,16 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleSelectServiceFromList = (service: Service) => {
-    setSelectedService(service);
-    setActiveTab('booking');
-    const bookingEl = document.getElementById('agendamento');
-    if (bookingEl) {
-      bookingEl.scrollIntoView({ behavior: 'smooth' });
+  // Selection toggle behavior: click once selects, click again deselects
+  const handleToggleServiceFromList = (service: Service) => {
+    if (selectedService?.id === service.id) {
+      setSelectedService(null);
+    } else {
+      setSelectedService(service);
+      const bookingEl = document.getElementById('agendamento');
+      if (bookingEl) {
+        bookingEl.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   };
 
@@ -50,43 +54,43 @@ export default function App() {
   };
 
   return (
-    <div className="w-full max-w-100vw min-h-screen bg-[#050505] text-zinc-100 overflow-x-hidden font-sans selection:bg-[#D4AF37] selection:text-black pb-24">
+    <div className="w-full max-w-100vw min-h-screen bg-[#050505] text-zinc-100 overflow-x-hidden font-sans selection:bg-[#D4AF37] selection:text-black pb-28">
       {/* Background ambient lighting effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#D4AF37]/8 rounded-full blur-[140px]" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[520px] h-[520px] bg-[#D4AF37]/8 rounded-full blur-[140px]" />
         <div className="absolute top-[40%] -left-32 w-72 h-72 bg-[#D4AF37]/5 rounded-full blur-[100px]" />
         <div className="absolute bottom-[20%] -right-32 w-72 h-72 bg-[#D4AF37]/5 rounded-full blur-[100px]" />
       </div>
 
       <div className="relative z-10 w-full max-w-md mx-auto">
-        {/* Top Header & Logo */}
-        <header className="pt-8 pb-4 px-4 text-center">
+        {/* Top Header & Prominent Logo (+20% bigger, generous breathing room) */}
+        <header className="pt-10 pb-5 px-4 text-center">
           <div className="inline-block relative">
             <img
               src={LOGO_URL}
               alt="Flayder Willis Barbearia Logo"
-              className="h-28 sm:h-32 mx-auto object-contain drop-shadow-[0_8px_25px_rgba(212,175,55,0.25)] select-none"
+              className="h-36 sm:h-40 mx-auto object-contain drop-shadow-[0_10px_30px_rgba(212,175,55,0.3)] select-none transition-transform hover:scale-105 duration-300"
             />
           </div>
         </header>
 
-        {/* Hero Section */}
-        <section className="text-center px-6 py-2">
-          <h1 className="text-2xl sm:text-3xl font-serif font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-[#FFF5C0] via-[#D4AF37] to-[#997722] uppercase">
+        {/* Hero Section: Smaller name to complement logo without competing visually */}
+        <section className="text-center px-6 py-1">
+          <h1 className="text-lg sm:text-xl font-serif font-bold tracking-[0.22em] text-[#E5C158] uppercase">
             FLAYDER WILLIS BARBEARIA
           </h1>
-          <p className="text-xs sm:text-sm font-medium tracking-widest text-[#F1D77A] mt-1.5 uppercase">
+          <p className="text-xs font-medium tracking-widest text-[#F1D77A]/90 mt-1 uppercase">
             "Seu estilo. Seu momento. Sua marca."
           </p>
           <p className="text-xs text-zinc-400 mt-2 font-light">
             Agende seu horário de forma rápida e fácil.
           </p>
 
-          {/* Primary Call to Action */}
+          {/* Primary Call to Action Button */}
           <div className="mt-5">
             <button
               onClick={() => handleNavigate('booking')}
-              className="w-full py-4 px-6 rounded-xl font-serif font-bold uppercase tracking-[0.18em] text-sm text-black bg-gradient-to-r from-[#D4AF37] via-[#F1D77A] to-[#B38728] shadow-[0_6px_25px_rgba(212,175,55,0.4)] hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer border border-[#FFF1B8]/40 flex items-center justify-center gap-3"
+              className="w-full py-4 px-6 rounded-2xl font-serif font-bold uppercase tracking-[0.18em] text-sm text-black bg-gradient-to-r from-[#D4AF37] via-[#F1D77A] to-[#B38728] shadow-[0_6px_25px_rgba(212,175,55,0.4)] hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer border border-[#FFF1B8]/40 flex items-center justify-center gap-3"
             >
               <Calendar size={18} className="text-black" />
               <span>AGENDAR HORÁRIO</span>
@@ -94,7 +98,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* 3D Social Media Buttons */}
+        {/* 3D Social Media Buttons (WhatsApp wa.link/h86l37 & Instagram) */}
         <section className="px-4 py-4">
           <div className="grid grid-cols-2 gap-3">
             {/* WhatsApp 3D Link */}
@@ -102,9 +106,9 @@ export default function App() {
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 rounded-xl bg-gradient-to-br from-[#0D0D0D] to-[#050505] border border-[#25D366]/40 hover:border-[#25D366] shadow-[0_4px_15px_rgba(0,0,0,0.6)] hover:shadow-[0_0_20px_rgba(37,211,102,0.25)] transition-all cursor-pointer"
+              className="group flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-br from-[#0D0D0D] to-[#050505] border border-[#25D366]/40 hover:border-[#25D366] shadow-[0_4px_15px_rgba(0,0,0,0.6)] hover:shadow-[0_0_20px_rgba(37,211,102,0.25)] transition-all cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-lg bg-black/80 border border-[#25D366]/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-black/80 border border-[#25D366]/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <PremiumIcon name="whatsapp" size={24} />
               </div>
               <div className="text-left overflow-hidden">
@@ -118,9 +122,9 @@ export default function App() {
               href={INSTAGRAM_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 rounded-xl bg-gradient-to-br from-[#0D0D0D] to-[#050505] border border-[#D4AF37]/40 hover:border-[#F1D77A] shadow-[0_4px_15px_rgba(0,0,0,0.6)] hover:shadow-[0_0_20px_rgba(212,175,55,0.25)] transition-all cursor-pointer"
+              className="group flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-br from-[#0D0D0D] to-[#050505] border border-[#D4AF37]/40 hover:border-[#F1D77A] shadow-[0_4px_15px_rgba(0,0,0,0.6)] hover:shadow-[0_0_20px_rgba(212,175,55,0.25)] transition-all cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-lg bg-black/80 border border-[#D4AF37]/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-black/80 border border-[#D4AF37]/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <PremiumIcon name="instagram" size={24} />
               </div>
               <div className="text-left overflow-hidden">
@@ -131,9 +135,9 @@ export default function App() {
           </div>
         </section>
 
-        {/* Works Carousel */}
+        {/* Works Carousel 1:1 Square & Larger with object-contain */}
         <section className="py-2">
-          <div className="px-4 text-center">
+          <div className="px-4 text-center mb-1">
             <span className="text-[10px] font-bold tracking-[0.25em] text-[#D4AF37] uppercase">Galeria de Cortes & Estilo</span>
           </div>
           <Carousel />
@@ -143,15 +147,15 @@ export default function App() {
         <ServicesList
           services={services}
           selectedServiceId={selectedService?.id || null}
-          onSelectService={handleSelectServiceFromList}
+          onToggleService={handleToggleServiceFromList}
           isLoading={isLoadingServices}
         />
 
-        {/* Real-time Firebase Booking Flow */}
+        {/* Booking Flow: Synchronized Date & Slots */}
         <BookingFlow
           services={services}
-          initialSelectedService={selectedService}
-          onClearService={() => setSelectedService(null)}
+          selectedService={selectedService}
+          onSelectService={(srv) => setSelectedService(srv)}
         />
 
         {/* Footer */}
@@ -160,7 +164,7 @@ export default function App() {
             <PremiumIcon name="scissors" size={32} />
           </div>
 
-          <h3 className="font-serif font-bold text-base tracking-widest text-[#F1D77A] uppercase">
+          <h3 className="font-serif font-bold text-sm tracking-widest text-[#F1D77A] uppercase">
             FLAYDER WILLIS BARBEARIA
           </h3>
           <p className="text-xs text-zinc-400 mt-1 italic">
@@ -172,7 +176,7 @@ export default function App() {
               href={INSTAGRAM_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-zinc-400 hover:text-[#F1D77A] flex items-center gap-1.5 transition-colors"
+              className="text-zinc-400 hover:text-[#F1D77A] flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <span>Instagram</span>
               <ExternalLink size={12} />
@@ -182,7 +186,7 @@ export default function App() {
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-zinc-400 hover:text-emerald-400 flex items-center gap-1.5 transition-colors"
+              className="text-zinc-400 hover:text-emerald-400 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <span>WhatsApp</span>
               <ExternalLink size={12} />
@@ -193,14 +197,14 @@ export default function App() {
             Agende seu horário online.
           </div>
 
-          {/* Admin link button for staff */}
+          {/* Admin area button */}
           <div className="mt-8 pt-4 border-t border-white/5 flex items-center justify-center">
             <button
               onClick={() => setIsAdminOpen(true)}
-              className="text-[10px] text-zinc-600 hover:text-zinc-400 flex items-center gap-1.5 transition-colors py-1 px-2.5 rounded-full hover:bg-white/5 cursor-pointer"
+              className="text-[10px] text-zinc-600 hover:text-zinc-400 flex items-center gap-1.5 transition-colors py-1.5 px-3 rounded-full hover:bg-white/5 cursor-pointer"
             >
               <Lock size={11} />
-              <span>Acesso Administrativo</span>
+              <span>Painel Administrativo</span>
             </button>
           </div>
         </footer>
@@ -209,6 +213,7 @@ export default function App() {
         <AdminDashboard
           isOpen={isAdminOpen}
           onClose={() => setIsAdminOpen(false)}
+          services={services}
         />
 
         {/* Mobile-first bottom navigation bar */}

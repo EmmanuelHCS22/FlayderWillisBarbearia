@@ -9,17 +9,18 @@ import {
   calculateEndTime
 } from '../services/bookingService';
 import { PremiumIcon } from './PremiumIcon';
-import { Calendar as CalendarIcon, Clock, CheckCircle2, AlertTriangle, User, Phone, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { Clock, AlertTriangle, User, Phone, ArrowRight, Check } from 'lucide-react';
 
 interface BookingFlowProps {
   services: Service[];
-  initialSelectedService: Service | null;
-  onClearService: () => void;
+  selectedService: Service | null;
+  onSelectService: (service: Service | null) => void;
 }
 
 export const BookingFlow: React.FC<BookingFlowProps> = ({
   services,
-  initialSelectedService,
+  selectedService,
+  onSelectService,
 }) => {
   // Today formatted as YYYY-MM-DD in Brazilian local time zone
   const getTodayString = () => {
@@ -30,15 +31,12 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     return `${year}-${month}-${day}`;
   };
 
-  const [selectedService, setSelectedService] = useState<Service | null>(
-    initialSelectedService || (services.length > 0 ? services[0] : null)
-  );
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
 
-  // Firestore live state
+  // Live state from appointments
   const [appointmentsOnDate, setAppointmentsOnDate] = useState<Appointment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -51,14 +49,11 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     customerName: string;
   } | null>(null);
 
-  // Sync initialSelectedService when changed externally
-  useEffect(() => {
-    if (initialSelectedService) {
-      setSelectedService(initialSelectedService);
-    }
-  }, [initialSelectedService]);
+  // Active services list
+  const activeServices = services.filter(s => s.active !== false);
 
-  // Real-time Firestore subscription for the chosen date
+  // Real-time subscription to appointments for the chosen date
+  // CRITICAL: When date changes, appointments are fetched specifically for that date
   useEffect(() => {
     if (!selectedDate) return;
     const unsubscribe = subscribeToAppointmentsForDate(selectedDate, (apts) => {
@@ -67,7 +62,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     return () => unsubscribe();
   }, [selectedDate]);
 
-  // Whenever date or duration changes, reset selected time if it becomes invalid
+  // Whenever date or duration changes, reset selected time if it becomes invalid or date changed
   const serviceDuration = selectedService ? selectedService.duration : 45;
   const availableSlots = computeSlotAvailability(BASE_TIME_SLOTS, appointmentsOnDate, serviceDuration);
 
@@ -82,7 +77,6 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
   }, [availableSlots, selectedTime]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Format Brazilian phone mask: (XX) 9XXXX-XXXX
     let val = e.target.value.replace(/\D/g, '');
     if (val.length > 11) val = val.slice(0, 11);
 
@@ -101,15 +95,15 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     setBookingError(null);
 
     if (!selectedService) {
-      setBookingError('Por favor, selecione um serviço.');
+      setBookingError('Por favor, selecione um serviço para continuar.');
       return;
     }
     if (!selectedDate) {
-      setBookingError('Por favor, selecione uma data.');
+      setBookingError('Por favor, selecione a data do atendimento.');
       return;
     }
     if (!selectedTime) {
-      setBookingError('Por favor, selecione um horário disponível.');
+      setBookingError('Por favor, escolha um dos horários disponíveis.');
       return;
     }
     if (!customerName.trim()) {
@@ -118,13 +112,13 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     }
     const cleanPhone = customerPhone.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      setBookingError('Por favor, informe um número de WhatsApp válido.');
+      setBookingError('Por favor, informe um número de WhatsApp válido com DDD.');
       return;
     }
 
     setIsSubmitting(true);
 
-    // Call atomic Firestore transaction
+    // Call atomic transaction
     const result = await bookAppointmentAtomically({
       customerName,
       customerPhone,
@@ -148,7 +142,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
         customerName: customerName.trim(),
       });
     } else {
-      setBookingError(result.error || 'Erro ao agendar horário. Tente novamente.');
+      setBookingError(result.error || 'Esse horário acabou de ser reservado. Escolha outro horário disponível.');
     }
   };
 
@@ -169,28 +163,23 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
 
     return (
       <section id="agendamento" className="w-full max-w-md mx-auto px-4 py-8 scroll-mt-14">
-        <div className="bg-[#0A0A0A] border-2 border-[#D4AF37] rounded-2xl p-6 shadow-[0_0_35px_rgba(212,175,55,0.3)] text-center relative overflow-hidden">
-          {/* Subtle gold sheen */}
+        <div className="bg-[#0A0A0A] border-2 border-[#D4AF37] rounded-3xl p-6 shadow-[0_0_35px_rgba(212,175,55,0.25)] text-center relative overflow-hidden">
           <div className="absolute -top-16 -right-16 w-36 h-36 bg-[#D4AF37]/10 rounded-full blur-2xl pointer-events-none" />
 
           <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-tr from-[#1a1608] to-[#2d240d] border border-[#F1D77A] flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(212,175,55,0.4)]">
-            <PremiumIcon name="check" size={34} />
+            <PremiumIcon name="check" size={32} />
           </div>
 
-          <span className="text-[10px] font-extrabold tracking-[0.25em] text-[#D4AF37] uppercase bg-[#D4AF37]/10 px-3 py-1 rounded-full border border-[#D4AF37]/30">
-            Registro Firestore Verificado
-          </span>
-
-          <h2 className="text-2xl font-serif font-bold text-white mt-3 uppercase tracking-wide">
+          <h2 className="text-2xl font-serif font-bold text-white uppercase tracking-wide">
             Agendamento Confirmado!
           </h2>
 
           <p className="text-xs text-zinc-300 mt-2">
-            Seu horário foi bloqueado com sucesso no banco de dados centralizado.
+            Seu horário foi reservado com sucesso na Flayder Willis Barbearia.
           </p>
 
           {/* Details Card */}
-          <div className="bg-black/70 border border-[#D4AF37]/30 rounded-xl p-4 my-5 text-left space-y-2.5">
+          <div className="bg-black/80 border border-[#D4AF37]/35 rounded-2xl p-4 my-5 text-left space-y-2.5">
             <div className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
               <span className="text-zinc-400">Cliente:</span>
               <span className="font-semibold text-white">{confirmedBooking.customerName}</span>
@@ -217,7 +206,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
             </div>
           </div>
 
-          {/* WhatsApp Direct Action Button */}
+          {/* WhatsApp Direct Action Button using wa.link/h86l37 */}
           <button
             onClick={handleOpenWhatsApp}
             className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_6px_20px_rgba(37,211,102,0.4)] hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
@@ -243,39 +232,50 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
   return (
     <section id="agendamento" className="w-full max-w-md mx-auto px-4 py-8 scroll-mt-14">
       <div className="text-center mb-6">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#121212] border border-[#D4AF37]/30 mb-2">
-          <ShieldCheck size={14} className="text-[#D4AF37]" />
-          <span className="text-[10px] font-bold tracking-widest text-[#F1D77A] uppercase">
-            Sistema Oficial Firebase
-          </span>
-        </div>
-        <h2 className="text-2xl font-serif tracking-wide text-white uppercase font-semibold">
+        <span className="text-[11px] font-bold tracking-[0.25em] text-[#D4AF37] uppercase">
+          Reserva Rápida
+        </span>
+        <h2 className="text-2xl font-serif tracking-wide text-white uppercase font-semibold mt-1">
           Agendar Horário
         </h2>
         <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mx-auto mt-2" />
         <p className="text-xs text-zinc-400 mt-2">
-          Sem necessidade de conta. Escolha data e horário em tempo real.
+          Escolha o serviço, a data e selecione o melhor horário para você.
         </p>
       </div>
 
-      <form onSubmit={handleBookingSubmit} className="space-y-6">
-        {/* Step 1: Service Selection */}
+      <form onSubmit={handleBookingSubmit} className="space-y-5">
+        {/* Step 1: Service Selection with easy switch or clear */}
         <div className="bg-[#0A0A0A] border border-[#D4AF37]/25 rounded-2xl p-4 shadow-md">
-          <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-zinc-200">
-            <span className="w-5 h-5 rounded-full bg-[#D4AF37] text-black text-xs flex items-center justify-center font-bold">1</span>
-            <span>Serviço Selecionado</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+              <span className="w-5 h-5 rounded-full bg-[#D4AF37] text-black text-xs flex items-center justify-center font-bold">1</span>
+              <span>Serviço Selecionado</span>
+            </div>
+            {selectedService && (
+              <button
+                type="button"
+                onClick={() => onSelectService(null)}
+                className="text-[11px] text-[#F1D77A] hover:underline cursor-pointer"
+              >
+                Trocar serviço
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-2">
             <select
               value={selectedService?.id || ''}
               onChange={(e) => {
-                const s = services.find((srv) => srv.id === e.target.value);
-                if (s) setSelectedService(s);
+                const s = activeServices.find((srv) => srv.id === e.target.value) || null;
+                onSelectService(s);
               }}
               className="w-full bg-[#121212] border border-[#D4AF37]/40 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-[#F1D77A] transition-colors"
             >
-              {services.map((service) => (
+              <option value="" disabled className="bg-black text-zinc-500">
+                Selecione um serviço...
+              </option>
+              {activeServices.map((service) => (
                 <option key={service.id} value={service.id} className="bg-black text-white">
                   {service.name} — R$ {service.price.toFixed(2).replace('.', ',')} ({service.duration} min)
                 </option>
@@ -307,59 +307,64 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
                 setSelectedDate(e.target.value);
                 setSelectedTime(null);
               }}
-              className="w-full bg-[#121212] border border-[#D4AF37]/40 rounded-xl px-4 py-3 text-white text-sm font-medium focus:outline-none focus:border-[#F1D77A] transition-colors [color-scheme:dark]"
+              className="w-full bg-[#121212] border border-[#D4AF37]/40 rounded-xl px-4 py-3 text-white text-sm font-medium focus:outline-none focus:border-[#F1D77A] transition-colors [color-scheme:dark] cursor-pointer"
               required
             />
           </div>
-          <p className="text-[11px] text-zinc-500 mt-2">
-            * Horário de atendimento: Segunda a Sábado das 08:00 às 19:30.
+          <p className="text-[11px] text-zinc-400 mt-2">
+            Funcionamento: Segunda a Sábado das 08:00 às 19:30.
           </p>
         </div>
 
-        {/* Step 3: Slots Grid (Real-time Firestore) */}
+        {/* Step 3: Slots Grid for the chosen date */}
         <div className="bg-[#0A0A0A] border border-[#D4AF37]/25 rounded-2xl p-4 shadow-md">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
               <span className="w-5 h-5 rounded-full bg-[#D4AF37] text-black text-xs flex items-center justify-center font-bold">3</span>
               <span>Horários Disponíveis</span>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-              <span>Firestore Ao Vivo</span>
+            <div className="text-[11px] text-[#F1D77A] font-medium">
+              Data: {selectedDate.split('-').reverse().join('/')}
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
-            {availableSlots.map((slot) => {
-              const isSelected = selectedTime === slot.time;
-              return (
-                <button
-                  key={slot.time}
-                  type="button"
-                  disabled={!slot.available}
-                  onClick={() => setSelectedTime(slot.time)}
-                  title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
-                  className={`py-2.5 px-1 rounded-lg text-xs font-semibold transition-all relative flex flex-col items-center justify-center ${
-                    !slot.available
-                      ? 'bg-zinc-900/60 text-zinc-600 border border-zinc-800/60 cursor-not-allowed line-through'
-                      : isSelected
-                      ? 'bg-gradient-to-r from-[#D4AF37] to-[#F1D77A] text-black shadow-[0_0_12px_rgba(212,175,55,0.6)] font-bold scale-[1.02]'
-                      : 'bg-[#151515] text-zinc-200 border border-[#D4AF37]/30 hover:border-[#D4AF37] hover:text-[#F1D77A]'
-                  }`}
-                >
-                  <span>{slot.time}</span>
-                  {!slot.available && (
-                    <span className="text-[8px] no-underline uppercase tracking-tight text-red-400/80">
-                      Ocupado
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {!selectedService ? (
+            <div className="p-4 rounded-xl bg-black/60 border border-white/5 text-center text-xs text-zinc-400">
+              Selecione primeiro um serviço para calcular a duração e visualizar os horários.
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-2">
+              {availableSlots.map((slot) => {
+                const isSelected = selectedTime === slot.time;
+                return (
+                  <button
+                    key={slot.time}
+                    type="button"
+                    disabled={!slot.available}
+                    onClick={() => setSelectedTime(slot.time)}
+                    title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
+                    className={`py-2.5 px-1 rounded-xl text-xs font-semibold transition-all relative flex flex-col items-center justify-center cursor-pointer ${
+                      !slot.available
+                        ? 'bg-zinc-900/60 text-zinc-600 border border-zinc-800/60 cursor-not-allowed line-through'
+                        : isSelected
+                        ? 'bg-gradient-to-r from-[#D4AF37] to-[#F1D77A] text-black shadow-[0_0_12px_rgba(212,175,55,0.6)] font-bold scale-[1.02]'
+                        : 'bg-[#151515] text-zinc-200 border border-[#D4AF37]/30 hover:border-[#D4AF37] hover:text-[#F1D77A]'
+                    }`}
+                  >
+                    <span>{slot.time}</span>
+                    {!slot.available && (
+                      <span className="text-[8px] no-underline uppercase tracking-tight text-red-400/80">
+                        Ocupado
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Slots Legend */}
-          <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-zinc-400 pt-2 border-t border-white/5">
+          <div className="mt-3.5 flex items-center justify-center gap-5 text-[11px] text-zinc-400 pt-2.5 border-t border-white/5">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#D4AF37]" />
               <span>Disponível</span>
@@ -409,13 +414,13 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
           </div>
         </div>
 
-        {/* Step 5: Summary & Confirmation */}
+        {/* Step 5: Summary */}
         {selectedService && selectedTime && (
           <div className="bg-gradient-to-br from-[#121212] via-[#0A0A0A] to-[#171305] border border-[#F1D77A]/50 rounded-2xl p-4 shadow-lg">
             <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
               <span className="text-xs uppercase tracking-wider text-zinc-400">Resumo da Reserva</span>
               <span className="text-[10px] text-[#F1D77A] font-semibold bg-[#F1D77A]/10 px-2 py-0.5 rounded-full">
-                Proteção Anti-Concorrência
+                Horário Selecionado
               </span>
             </div>
             <div className="space-y-1.5 text-xs">
@@ -432,7 +437,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
                 <span className="text-white font-medium">{selectedDate.split('-').reverse().join('/')} às {selectedTime}</span>
               </div>
               <div className="flex justify-between pt-1 border-t border-white/5">
-                <span className="text-zinc-300 font-semibold">Valor:</span>
+                <span className="text-zinc-300 font-semibold">Valor Total:</span>
                 <span className="text-[#F1D77A] font-bold text-sm">
                   R$ {selectedService.price.toFixed(2).replace('.', ',')}
                 </span>
@@ -452,9 +457,9 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={isSubmitting || !selectedTime}
+          disabled={isSubmitting || !selectedTime || !selectedService}
           className={`w-full py-4 rounded-xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_6px_25px_rgba(212,175,55,0.35)] ${
-            isSubmitting || !selectedTime
+            isSubmitting || !selectedTime || !selectedService
               ? 'bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed'
               : 'bg-gradient-to-r from-[#D4AF37] via-[#F1D77A] to-[#B38728] text-black hover:brightness-105 active:scale-[0.98]'
           }`}
@@ -462,7 +467,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
           {isSubmitting ? (
             <div className="flex items-center gap-2">
               <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-              <span>Verificando no Firestore...</span>
+              <span>Confirmando horário...</span>
             </div>
           ) : (
             <>
