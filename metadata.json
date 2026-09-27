@@ -1,0 +1,6 @@
+{
+  "name": "Flayder Willis Barbearia - Biosite Premium de Agendamento",
+  "description": "Biosite oficial e exclusivo da Flayder Willis Barbearia com sistema de agendamento em tempo real com Firebase Firestore.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

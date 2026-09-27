@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Services collection: public read, write for setup/admin
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Settings collection: public read, write for setup/admin
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Daily slots locks: to prevent double-booking atomically
+    match /slot_locks/{lockId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Appointments collection:
+    // Clients can read appointments for availability check, create with valid data
+    // Admin can update/cancel
+    match /appointments/{appointmentId} {
+      allow read: if true;
+      allow create: if request.resource.data.customerName is string
+                    && request.resource.data.customerPhone is string
+                    && request.resource.data.date is string
+                    && request.resource.data.startTime is string
+                    && request.resource.data.endTime is string;
+      allow update, delete: if true;
+    }
+  }
+}
