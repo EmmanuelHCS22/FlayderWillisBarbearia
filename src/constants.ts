@@ -103,6 +103,14 @@ export const WHATSAPP_PHONE_NUMBER = '553492504146';
 export const INSTAGRAM_URL = 'https://www.instagram.com/flayderwillisbarbearia?utm_source=ig_web_button_share_sheet&stkn=ZDNlZDc0MzIxNw==';
 export const GOOGLE_REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJiWS6ZJRDpJQRzo83bf_UkGc';
 
+// Endereço exato da barbearia
+export const BARBERSHOP_ADDRESS = 'R. Roberto Margonari, 827 - Luizote de Freitas, Uberlândia - MG, 38414-465';
+
+// Links de navegação dinâmica para Google Maps e Waze
+const ENCODED_ADDRESS = encodeURIComponent(BARBERSHOP_ADDRESS);
+export const GOOGLE_MAPS_NAV_URL = `https://www.google.com/maps/search/?api=1&query=${ENCODED_ADDRESS}`;
+export const WAZE_NAV_URL = `https://waze.com/ul?q=${ENCODED_ADDRESS}&navigate=yes`;
+
 // Base time slots:
 export const BASE_TIME_SLOTS = [
   '08:00',

@@ -5,6 +5,7 @@ import { ServicesList } from './components/ServicesList';
 import { BookingFlow } from './components/BookingFlow';
 import { BottomNav } from './components/BottomNav';
 import { AdminDashboard } from './components/AdminDashboard';
+import { DirectionsModal } from './components/DirectionsModal';
 import { PremiumIcon } from './components/PremiumIcon';
 import { Service, CarouselImageItem } from './types';
 import { subscribeToServices, subscribeToCarousel } from './services/bookingService';
@@ -17,6 +18,7 @@ export default function App() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking'>('home');
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
 
   // Subscribe to live Firestore services internally
   useEffect(() => {
@@ -131,7 +133,7 @@ export default function App() {
 
       {/* RESTANTE DO BIOSITE (Mantendo layout existente de contatos, carrossel, serviços e agendamento) */}
       <div className="relative z-10 w-full max-w-md mx-auto">
-        {/* Contact & Social Section: WhatsApp, Instagram and Google Review in Original Brand Colors */}
+        {/* Contact & Social Section: WhatsApp, Instagram, Google Review e Único Botão "COMO CHEGAR" */}
         <section className="px-4 py-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             {/* 1. ENTRE EM CONTATO CONOSCO NO WHATSAPP (Original Green) */}
@@ -196,6 +198,30 @@ export default function App() {
             </div>
             <ExternalLink size={16} className="text-zinc-400 group-hover:text-blue-400 shrink-0 mr-1 transition-colors" />
           </a>
+
+          {/* 4. ÚNICO BOTÃO PERMANENTE: COMO CHEGAR (Padrão Preto e Dourado com Ícone 3D) */}
+          <button
+            type="button"
+            onClick={() => setIsDirectionsOpen(true)}
+            className="w-full group flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-[#141006] via-[#0D0B04] to-[#171305] border border-[#D4AF37]/50 hover:border-[#F1D77A] shadow-[0_4px_18px_rgba(0,0,0,0.7)] hover:shadow-[0_0_25px_rgba(212,175,55,0.35)] transition-all cursor-pointer select-none active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-black/85 border border-[#D4AF37]/45 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-[0_0_12px_rgba(212,175,55,0.25)]">
+                <PremiumIcon name="location" size={26} />
+              </div>
+              <div className="text-left">
+                <span className="block text-xs font-serif font-bold uppercase tracking-wider text-[#F1D77A] group-hover:text-white transition-colors">
+                  📍 COMO CHEGAR
+                </span>
+                <span className="block text-[10px] text-zinc-400 mt-0.5">
+                  Rotas rápidas com Google Maps ou Waze
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#F1D77A] group-hover:bg-[#D4AF37] group-hover:text-black transition-all text-[11px] font-bold tracking-wider uppercase">
+              <span>ABRIR</span>
+            </div>
+          </button>
         </section>
 
         {/* Works Carousel with dynamic Firestore images */}
@@ -285,6 +311,12 @@ export default function App() {
             </button>
           </div>
         </footer>
+
+        {/* Modal Elegante: Como Você Quer Chegar? (Google Maps vs Waze) */}
+        <DirectionsModal
+          isOpen={isDirectionsOpen}
+          onClose={() => setIsDirectionsOpen(false)}
+        />
 
         {/* Admin Dashboard Modal with Firebase Auth */}
         <AdminDashboard

@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface PremiumIconProps {
-  name: 'scissors' | 'beard' | 'combo' | 'hair' | 'straight' | 'platinum' | 'eyebrow' | 'dye' | 'calendar' | 'whatsapp' | 'instagram' | 'google' | 'clock' | 'check' | 'shield' | 'star' | 'lock';
+  name: 'scissors' | 'beard' | 'combo' | 'hair' | 'straight' | 'platinum' | 'eyebrow' | 'dye' | 'calendar' | 'whatsapp' | 'instagram' | 'google' | 'clock' | 'check' | 'shield' | 'star' | 'lock' | 'location' | 'google-maps' | 'waze';
   className?: string;
   size?: number;
 }
@@ -21,7 +21,6 @@ export const PremiumIcon: React.FC<PremiumIconProps> = ({ name, className = '', 
           xmlns="http://www.w3.org/2000/svg"
           className="drop-shadow-[0_2px_8px_rgba(37,211,102,0.45)] transition-transform duration-300"
         >
-          {/* Official WhatsApp Green circular background with subtle 3D lighting */}
           <circle cx="24" cy="24" r="22" fill="#25D366" />
           <defs>
             <radialGradient id="wa-shine" cx="30%" cy="25%" r="70%">
@@ -31,7 +30,6 @@ export const PremiumIcon: React.FC<PremiumIconProps> = ({ name, className = '', 
           </defs>
           <circle cx="24" cy="24" r="22" fill="url(#wa-shine)" />
 
-          {/* White WhatsApp Phone / Chat bubble icon */}
           <path
             fillRule="evenodd"
             clipRule="evenodd"
@@ -74,11 +72,9 @@ export const PremiumIcon: React.FC<PremiumIconProps> = ({ name, className = '', 
             </linearGradient>
           </defs>
 
-          {/* Official Rounded Squircle with authentic Instagram Gradient */}
           <rect x="4" y="4" width="40" height="40" rx="11" fill={`url(#${igGradId}-linear)`} />
           <rect x="4" y="4" width="40" height="40" rx="11" fill={`url(#${igGradId}-radial)`} fillOpacity="0.85" />
 
-          {/* Camera outline and center lens */}
           <rect x="11.5" y="11.5" width="25" height="25" rx="7" stroke="#FFFFFF" strokeWidth="2.8" />
           <circle cx="24" cy="24" r="6" stroke="#FFFFFF" strokeWidth="2.8" />
           <circle cx="31.5" cy="16.5" r="1.6" fill="#FFFFFF" />
@@ -87,7 +83,7 @@ export const PremiumIcon: React.FC<PremiumIconProps> = ({ name, className = '', 
     );
   }
 
-  // 3. Google in official 4-color brand design (Red, Yellow, Green, Blue)
+  // 3. Google in official 4-color brand design
   if (name === 'google') {
     return (
       <div className={`relative inline-flex items-center justify-center select-none ${className}`} style={{ width: size, height: size }}>
@@ -98,10 +94,8 @@ export const PremiumIcon: React.FC<PremiumIconProps> = ({ name, className = '', 
           xmlns="http://www.w3.org/2000/svg"
           className="drop-shadow-[0_2px_8px_rgba(66,133,244,0.35)] transition-transform duration-300"
         >
-          {/* Dark luxury disc base for contrast on dark background */}
           <circle cx="24" cy="24" r="22" fill="#18181B" stroke="#27272A" strokeWidth="1" />
           
-          {/* Authentic Google 'G' shape with exact brand colors */}
           <path
             d="M34.6 24.3c0-.7-.1-1.4-.2-2.1H24v4.2h6c-.3 1.4-1.1 2.6-2.3 3.4v2.8h3.7c2.2-2 3.4-5 3.4-8.3z"
             fill="#4285F4"
@@ -118,6 +112,126 @@ export const PremiumIcon: React.FC<PremiumIconProps> = ({ name, className = '', 
             d="M24 16.5c1.8 0 3.3.6 4.6 1.8l3.4-3.4C29.9 13 27.2 12 24 12c-4.8 0-9 2.8-11 6.8l3.9 3c1-3.1 3.8-5.3 7.1-5.3z"
             fill="#EA4335"
           />
+        </svg>
+      </div>
+    );
+  }
+
+  // 4. Google Maps Pin Icon with authentic colors
+  if (name === 'google-maps') {
+    return (
+      <div className={`relative inline-flex items-center justify-center select-none ${className}`} style={{ width: size, height: size }}>
+        <svg
+          viewBox="0 0 48 48"
+          width={size}
+          height={size}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="drop-shadow-[0_2px_8px_rgba(234,67,53,0.35)]"
+        >
+          <path
+            d="M24 6C16.27 6 10 12.27 10 20C10 29.5 24 42 24 42C24 42 38 29.5 38 20C38 12.27 31.73 6 24 6Z"
+            fill="#EA4335"
+          />
+          <path
+            d="M24 6C16.27 6 10 12.27 10 20C10 24.5 12.5 29.5 16 34L24 42V6Z"
+            fill="#4285F4"
+          />
+          <path
+            d="M24 6C20 6 17 8 15 11L24 20H34C34 12.27 29.5 6 24 6Z"
+            fill="#FBBC05"
+          />
+          <path
+            d="M24 42C24 42 32 34 35 28L24 20V42Z"
+            fill="#34A853"
+          />
+          <circle cx="24" cy="20" r="6" fill="#FFFFFF" />
+        </svg>
+      </div>
+    );
+  }
+
+  // 5. Waze Icon with authentic cyan-blue and cute smiley car design
+  if (name === 'waze') {
+    return (
+      <div className={`relative inline-flex items-center justify-center select-none ${className}`} style={{ width: size, height: size }}>
+        <svg
+          viewBox="0 0 48 48"
+          width={size}
+          height={size}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="drop-shadow-[0_2px_8px_rgba(51,204,255,0.45)]"
+        >
+          {/* Circular badge */}
+          <circle cx="24" cy="24" r="22" fill="#33CCFF" />
+          {/* Ghost car white silhouette */}
+          <path
+            d="M35 24C35 17.9 30.1 13 24 13C17.9 13 13 17.9 13 24C13 29.4 17 33.9 22.1 34.8C22.6 35.8 23.4 36.6 24.5 36.9C25.5 37.1 26.6 36.8 27.3 36C28.2 36 29 36 29.8 35.8C32.8 35 35 32.3 35 29V24Z"
+            fill="#FFFFFF"
+          />
+          {/* Wheels */}
+          <circle cx="19" cy="35" r="3.2" fill="#000000" />
+          <circle cx="29" cy="35" r="3.2" fill="#000000" />
+          <circle cx="19" cy="35" r="1.5" fill="#FFFFFF" />
+          <circle cx="29" cy="35" r="1.5" fill="#FFFFFF" />
+          {/* Eyes */}
+          <circle cx="28" cy="22" r="2.2" fill="#000000" />
+          <circle cx="20" cy="22" r="2.2" fill="#000000" />
+          {/* Smile */}
+          <path
+            d="M21.5 26.5C22.5 28 25.5 28 26.5 26.5"
+            stroke="#000000"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  // 6. 3D Premium Gold Location / Map Pin Icon
+  if (name === 'location') {
+    return (
+      <div className={`relative inline-flex items-center justify-center select-none ${className}`} style={{ width: size, height: size }}>
+        <svg
+          viewBox="0 0 64 64"
+          width={size}
+          height={size}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="drop-shadow-[0_4px_12px_rgba(212,175,55,0.45)] transition-transform duration-300"
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFF1B8" />
+              <stop offset="35%" stopColor="#E5C158" />
+              <stop offset="70%" stopColor="#B38728" />
+              <stop offset="100%" stopColor="#FBF5B7" />
+            </linearGradient>
+            <filter id={`${gradientId}-glow`} x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          <g filter={`url(#${gradientId}-glow)`}>
+            {/* Ground pulse shadow */}
+            <ellipse cx="32" cy="54" rx="14" ry="4.5" fill={`url(#${gradientId})`} fillOpacity="0.3" />
+            
+            {/* 3D Map Pin Body */}
+            <path
+              d="M32 10C21 10 14 18 14 27C14 39 32 54 32 54C32 54 50 39 50 27C50 18 43 10 32 10Z"
+              stroke={`url(#${gradientId})`}
+              strokeWidth="4"
+              strokeLinejoin="round"
+              fill={`url(#${gradientId})`}
+              fillOpacity="0.25"
+            />
+            {/* Inner jewel circle */}
+            <circle cx="32" cy="26" r="7" stroke={`url(#${gradientId})`} strokeWidth="3.5" fill="#0A0A0A" />
+            <circle cx="32" cy="26" r="3.5" fill={`url(#${gradientId})`} />
+          </g>
         </svg>
       </div>
     );
