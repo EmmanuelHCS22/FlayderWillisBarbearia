@@ -16,6 +16,8 @@ export interface Service {
 
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
 
+export type NotificationStatus = 'pending' | 'sent' | 'failed';
+
 export interface ServiceItemInBooking {
   id: string;
   name: string;
@@ -36,6 +38,10 @@ export interface Appointment {
   startTime: string; // HH:mm
   endTime: string; // HH:mm
   status: AppointmentStatus;
+  notificationStatus?: NotificationStatus;
+  notificationSentAt?: string;
+  notificationMessageId?: string;
+  notificationError?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +68,19 @@ export interface AdminConfig {
   configured: boolean;
   adminIdentifier: string;
   createdAt: string;
+}
+
+export interface WhatsAppSettings {
+  barberPhoneNumber: string;
+  phoneNumberId?: string;
+  businessAccountId?: string;
+  hasAccessToken?: boolean;
+  isConfigured: boolean;
+  lastTestedAt?: string;
+  lastTestStatus?: 'success' | 'failed';
+  lastTestMessage?: string;
+  lastTestError?: string;
+  updatedAt?: string;
 }
 
 export interface BusinessSettings {

@@ -47,7 +47,8 @@ import {
   CheckCircle2,
   GripVertical,
   ExternalLink,
-  DollarSign
+  DollarSign,
+  ShieldCheck
 } from 'lucide-react';
 import { PremiumIcon } from './PremiumIcon';
 
@@ -136,6 +137,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [blockStartTime, setBlockStartTime] = useState('14:00');
   const [blockEndTime, setBlockEndTime] = useState('15:00');
   const [blockReason, setBlockReason] = useState('Compromisso da Barbearia');
+
 
   // Listen to Firebase Auth state
   useEffect(() => {
@@ -1482,19 +1484,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </div>
                               </div>
 
-                              <span
-                                className={`text-[10px] font-bold uppercase px-3 py-1 rounded-full ${
-                                  apt.status === 'confirmed'
-                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                    : apt.status === 'completed'
-                                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                    : apt.status === 'cancelled'
-                                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                    : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                                }`}
-                              >
-                                {apt.status === 'confirmed' ? 'Confirmado' : apt.status === 'completed' ? 'Concluído' : apt.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
-                              </span>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`text-[10px] font-bold uppercase px-3 py-1 rounded-full ${
+                                    apt.status === 'confirmed'
+                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                      : apt.status === 'completed'
+                                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                      : apt.status === 'cancelled'
+                                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                      : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                  }`}
+                                >
+                                  {apt.status === 'confirmed' ? 'Confirmado' : apt.status === 'completed' ? 'Concluído' : apt.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
+                                </span>
+                              </div>
                             </div>
 
                             {/* Details Grid (Multiple services support, total price, duration) */}
@@ -1556,39 +1560,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {/* 5. TAB: CONFIGURAÇÕES */}
+              {/* TAB: CONFIGURAÇÕES */}
               {activeTab === 'settings' && (
-                <div className="space-y-4 max-w-lg mx-auto">
-                  <div className="bg-black/90 border border-[#D4AF37]/35 rounded-2xl p-5 space-y-4 shadow-lg">
-                    <h4 className="font-serif font-bold text-sm uppercase tracking-wider text-white border-b border-white/10 pb-3">
-                      SESSÃO ADMINISTRATIVA ATUAL
-                    </h4>
-                    <div className="space-y-2 text-xs text-zinc-300">
-                      <div>
-                        <span className="text-zinc-500 block">Identificador Firebase Auth:</span>
-                        <strong className="text-white font-mono">{user.email}</strong>
-                      </div>
-                      <div>
-                        <span className="text-zinc-500 block">UID do Administrador:</span>
-                        <span className="text-zinc-400 font-mono text-[11px]">{user.uid}</span>
-                      </div>
-                      <div>
-                        <span className="text-zinc-500 block">Horário de Funcionamento:</span>
-                        <span className="text-zinc-300 font-medium">Segunda a Sábado, das 08:00 às 19:30</span>
-                      </div>
-                    </div>
-                  </div>
-
+                <div className="space-y-5 max-w-xl mx-auto">
+                  {/* Sessão Administrativa */}
                   <div className="bg-black/90 border border-white/10 rounded-2xl p-5 space-y-3">
                     <h4 className="font-serif font-bold text-xs uppercase tracking-wider text-zinc-400">
-                      ENCERRAR SESSÃO
+                      Sessão Administrativa
                     </h4>
-                    <p className="text-xs text-zinc-400">
-                      Finaliza a sessão atual do Firebase Authentication no navegador.
-                    </p>
+                    <div className="text-xs text-zinc-300 space-y-1">
+                      <div>E-mail técnico: <strong className="text-white font-mono">{user.email}</strong></div>
+                      <div>UID: <span className="text-zinc-500 font-mono text-[11px]">{user.uid}</span></div>
+                    </div>
                     <button
                       onClick={handleLogout}
-                      className="w-full py-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 font-bold text-xs uppercase hover:bg-red-500/30 transition-colors cursor-pointer"
+                      className="w-full mt-2 py-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 font-bold text-xs uppercase hover:bg-red-500/30 transition-colors cursor-pointer"
                     >
                       SAIR DO PAINEL ADMIN
                     </button>

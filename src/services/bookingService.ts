@@ -767,36 +767,71 @@ export async function bookAppointmentAtomically(appointmentData: {
 }
 
 /**
- * Builds the exact WhatsApp appointment text with all customer and booking details
+ * Format total duration nicely (e.g. 105 min -> "1h45", 45 min -> "45 minutos")
  */
-export function buildWhatsAppAppointmentText(appointment: {
-  serviceName: string;
-  date: string;
-  startTime: string;
-  servicePrice: number;
-  customerName: string;
-}): string {
-  const dateParts = appointment.date.split('-');
-  const formattedDate = dateParts.length === 3 
-    ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` 
-    : appointment.date;
-
-  const formattedPrice = Number(appointment.servicePrice).toFixed(2).replace('.', ',');
-
-  return `Olá Flayder Willis Barbearia! 👋\n\nAcabei de marcar um horário pelo site.\n\n✂️ Serviço: ${appointment.serviceName}\n📅 Data: ${formattedDate}\n🕐 Horário: ${appointment.startTime}\n💰 Valor: R$ ${formattedPrice}\n\nNome: ${appointment.customerName}\n\nAguardo a confirmação. Obrigado!`;
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} minutos`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (m === 0) return `${h}h`;
+  return `${h}h${m.toString().padStart(2, '0')}`;
 }
 
 /**
- * Generate formatted WhatsApp link with properly encoded message.
+ * Format date string YYYY-MM-DD to DD/MM/AAAA
  */
-export function generateWhatsAppUrl(appointment: {
+function formatDate(dateStr: string): string {
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
+/**
+ * Builds the exact WhatsApp appointment text with all customer and booking details
+ */
+export function buildWhatsAppAppointmentText(appointment: {
+  customerName: string;
+  customerPhone: string;
   serviceName: string;
+  services?: Array<{ id: string; name: string; price: number; duration: number }>;
+  serviceDuration: number;
+  servicePrice: number;
   date: string;
   startTime: string;
-  servicePrice: number;
+}): string {
+  const formattedDate = formatDate(appointment.date);
+  const formattedDuration = formatDuration(appointment.serviceDuration);
+  const formattedPrice = Number(appointment.servicePrice).toFixed(2).replace('.', ',');
+
+  let servicesBlock = '';
+  if (appointment.services && appointment.services.length > 0) {
+    servicesBlock = appointment.services
+      .map(s => `• ${s.name} — R$ ${Number(s.price).toFixed(2).replace('.', ',')}`)
+      .join('\n');
+  } else {
+    servicesBlock = `• ${appointment.serviceName} — R$ ${formattedPrice}`;
+  }
+
+  return `Olá Flayder Willis Barbearia! 👋\n\nAcabei de marcar um horário pelo site.\n\n👤 Nome: ${appointment.customerName}\n\n📱 Telefone: ${appointment.customerPhone}\n\n✂️ Serviço(s):\n${servicesBlock}\n\n📅 Data: ${formattedDate}\n\n🕐 Horário: ${appointment.startTime}\n\n⏱️ Duração: ${formattedDuration}\n\n💰 Valor total: R$ ${formattedPrice}\n\nAguardo a confirmação. Obrigado!`;
+}
+
+/**
+ * Generate formatted WhatsApp link with properly encoded message to Flayder Willis Barbearia.
+ */
+export function generateWhatsAppUrl(appointment: {
   customerName: string;
+  customerPhone: string;
+  serviceName: string;
+  services?: Array<{ id: string; name: string; price: number; duration: number }>;
+  serviceDuration: number;
+  servicePrice: number;
+  date: string;
+  startTime: string;
 }): string {
   const message = buildWhatsAppAppointmentText(appointment);
   const encodedText = encodeURIComponent(message);
-  return `https://api.whatsapp.com/send?phone=${WHATSAPP_PHONE_NUMBER}&text=${encodedText}`;
+  return `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodedText}`;
 }
+

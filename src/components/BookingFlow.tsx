@@ -5,11 +5,10 @@ import {
   subscribeToAppointmentsForDate,
   computeSlotAvailability,
   bookAppointmentAtomically,
-  generateWhatsAppUrl,
-  calculateEndTime
+  generateWhatsAppUrl
 } from '../services/bookingService';
 import { PremiumIcon } from './PremiumIcon';
-import { AlertTriangle, User, Phone, ArrowRight, Copy, Check, ExternalLink, X, Plus } from 'lucide-react';
+import { AlertTriangle, User, Phone, ArrowRight, Check, X } from 'lucide-react';
 
 interface BookingFlowProps {
   services: Service[];
@@ -55,41 +54,36 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     return date.getDay() === 0;
   };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
+  // Form states: initially clean
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
-  const [copied, setCopied] = useState(false);
 
   // Live state from appointments
   const [appointmentsOnDate, setAppointmentsOnDate] = useState<Appointment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
-  const [confirmedBooking, setConfirmedBooking] = useState<{
-    id: string;
-    serviceName: string;
-    servicePrice: number;
-    serviceDuration: number;
-    date: string;
-    startTime: string;
-    customerName: string;
-  } | null>(null);
+  const [lastSubmittedUrl, setLastSubmittedUrl] = useState<string | null>(null);
 
   // Active services list
   const activeServices = services.filter(s => s.active !== false);
 
   // Real-time subscription to appointments for the chosen date
   useEffect(() => {
-    if (!selectedDate) return;
+    if (!selectedDate) {
+      setAppointmentsOnDate([]);
+      return;
+    }
     const unsubscribe = subscribeToAppointmentsForDate(selectedDate, (apts) => {
       setAppointmentsOnDate(apts);
     });
     return () => unsubscribe();
   }, [selectedDate]);
 
-  // Compute slot availability: If Sunday, no slots available
+  // Compute slot availability: If Sunday or no date, no slots available
   const isSundaySelected = isSunday(selectedDate);
-  const availableSlots = isSundaySelected
+  const availableSlots = (!selectedDate || isSundaySelected)
     ? []
     : computeSlotAvailability(BASE_TIME_SLOTS, appointmentsOnDate, totalDuration);
 
@@ -149,6 +143,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
 
     setIsSubmitting(true);
 
+    // Save appointment to Firestore first (Requirement #3)
     const result = await bookAppointmentAtomically({
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
@@ -166,138 +161,73 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
       startTime: selectedTime,
     });
 
-    setIsSubmitting(false);
-
     if (result.success && result.appointmentId) {
-      const confirmed = {
-        id: result.appointmentId,
+      // 2, 3, 4, 5: Generate WhatsApp URL with prefilled message containing all details
+      const waUrl = generateWhatsAppUrl({
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
         serviceName: serviceNamesDisplay,
-        servicePrice: totalPrice,
+        services: effectiveServices.map(s => ({
+          id: s.id,
+          name: s.name,
+          price: s.price,
+          duration: s.duration
+        })),
         serviceDuration: totalDuration,
+        servicePrice: totalPrice,
         date: selectedDate,
         startTime: selectedTime,
-        customerName: customerName.trim(),
-      };
-      setConfirmedBooking(confirmed);
+      });
+
+      // Abrir o WhatsApp utilizando o link com a mensagem pré-preenchida
+      try {
+        const opened = window.open(waUrl, '_blank');
+        if (!opened) {
+          // Em caso de popup blocker, simula clique em tag âncora
+          const tempLink = document.createElement('a');
+          tempLink.href = waUrl;
+          tempLink.target = '_blank';
+          tempLink.rel = 'noopener noreferrer';
+          document.body.appendChild(tempLink);
+          tempLink.click();
+          document.body.removeChild(tempLink);
+        }
+      } catch (err) {
+        console.error('Erro ao abrir WhatsApp:', err);
+      }
+
+      // Salva URL para banner informativo não-bloqueante
+      setLastSubmittedUrl(waUrl);
+
+      // Auto-remover banner informativo após 10 segundos
+      setTimeout(() => {
+        setLastSubmittedUrl(null);
+      }, 10000);
+
+      // 6, 7, 8, 9, 10: RESETAR COMPLETAMENTE O AGENDAMENTO APÓS A CONFIRMAÇÃO
+      // Limpar todos os serviços selecionados
+      if (onClearServices) onClearServices();
+      if (onSelectService) onSelectService(null);
+
+      // Limpar data e horário (voltar ao estado inicial)
+      setSelectedDate('');
+      setSelectedTime(null);
+
+      // Limpar dados do cliente (deixar campos vazios)
+      setCustomerName('');
+      setCustomerPhone('');
+
+      // Limpar erros e finalizar submissão
+      setBookingError(null);
+      setIsSubmitting(false);
 
       const el = document.getElementById('agendamento');
       if (el) el.scrollIntoView({ behavior: 'smooth' });
     } else {
+      setIsSubmitting(false);
       setBookingError(result.error || 'Esse horário acabou de ser reservado. Escolha outro horário disponível.');
     }
   };
-
-  const handleCopyMessage = () => {
-    if (!confirmedBooking) return;
-    const dateParts = confirmedBooking.date.split('-');
-    const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : confirmedBooking.date;
-    const formattedPrice = Number(confirmedBooking.servicePrice).toFixed(2).replace('.', ',');
-    const text = `Olá Flayder Willis Barbearia! 👋\n\nAcabei de marcar um horário pelo site.\n\n✂️ Serviços: ${confirmedBooking.serviceName}\n📅 Data: ${formattedDate}\n🕐 Horário: ${confirmedBooking.startTime}\n💰 Valor Total: R$ ${formattedPrice}\n\nNome: ${confirmedBooking.customerName}\n\nAguardo a confirmação. Obrigado!`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
-  };
-
-  // If confirmed, display the confirmation screen
-  if (confirmedBooking) {
-    const dateParts = confirmedBooking.date.split('-');
-    const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : confirmedBooking.date;
-    const calculatedEnd = calculateEndTime(confirmedBooking.startTime, confirmedBooking.serviceDuration);
-    const whatsappLinkUrl = generateWhatsAppUrl({
-      serviceName: confirmedBooking.serviceName,
-      date: confirmedBooking.date,
-      startTime: confirmedBooking.startTime,
-      servicePrice: confirmedBooking.servicePrice,
-      customerName: confirmedBooking.customerName
-    });
-
-    return (
-      <section id="agendamento" className="w-full max-w-md mx-auto px-4 py-8 scroll-mt-14">
-        <div className="bg-[#0A0A0A] border-2 border-[#D4AF37] rounded-3xl p-6 shadow-[0_0_35px_rgba(212,175,55,0.25)] text-center relative overflow-hidden">
-          <div className="absolute -top-16 -right-16 w-36 h-36 bg-[#D4AF37]/10 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-tr from-[#1a1608] to-[#2d240d] border border-[#F1D77A] flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(212,175,55,0.4)]">
-            <PremiumIcon name="check" size={32} />
-          </div>
-
-          <h2 className="text-2xl font-serif font-bold text-white uppercase tracking-wide">
-            Agendamento Confirmado!
-          </h2>
-
-          <p className="text-xs text-zinc-300 mt-2">
-            Seu horário foi reservado com sucesso na Flayder Willis Barbearia.
-          </p>
-
-          <div className="bg-black/80 border border-[#D4AF37]/35 rounded-2xl p-4 my-5 text-left space-y-2.5">
-            <div className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
-              <span className="text-zinc-400">Cliente:</span>
-              <span className="font-semibold text-white">{confirmedBooking.customerName}</span>
-            </div>
-            <div className="flex justify-between items-start text-sm border-b border-white/5 pb-2">
-              <span className="text-zinc-400">Serviços:</span>
-              <span className="font-semibold text-[#F1D77A] text-right max-w-[200px]">{confirmedBooking.serviceName}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
-              <span className="text-zinc-400">Data:</span>
-              <span className="font-semibold text-white">{formattedDate}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
-              <span className="text-zinc-400">Horário:</span>
-              <span className="font-semibold text-white">
-                {confirmedBooking.startTime} às {calculatedEnd} ({confirmedBooking.serviceDuration} min)
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-sm pt-1">
-              <span className="text-zinc-400">Valor Total:</span>
-              <span className="font-bold text-lg text-[#F1D77A]">
-                R$ {confirmedBooking.servicePrice.toFixed(2).replace('.', ',')}
-              </span>
-            </div>
-          </div>
-
-          <a
-            href={whatsappLinkUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_6px_20px_rgba(37,211,102,0.4)] hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer select-none no-underline"
-          >
-            <PremiumIcon name="whatsapp" size={24} />
-            <span>CONTINUAR NO WHATSAPP</span>
-          </a>
-
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              onClick={handleCopyMessage}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-zinc-300 flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-              <span>{copied ? 'Mensagem Copiada!' : 'Copiar Mensagem'}</span>
-            </button>
-            <a
-              href={whatsappLinkUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-zinc-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              title="Abrir WhatsApp Novamente"
-            >
-              <ExternalLink size={14} />
-              <span>Reabrir</span>
-            </a>
-          </div>
-
-          <button
-            onClick={() => {
-              setConfirmedBooking(null);
-              setSelectedTime(null);
-            }}
-            className="w-full mt-4 py-2 text-xs text-zinc-400 hover:text-white uppercase tracking-wider transition-colors cursor-pointer"
-          >
-            Agendar outro serviço
-          </button>
-        </div>
-      </section>
-    );
-  }
 
   return (
     <section id="agendamento" className="w-full max-w-md mx-auto px-4 py-8 scroll-mt-14">
@@ -313,6 +243,37 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
           Escolha os serviços, a data e selecione o melhor horário para você.
         </p>
       </div>
+
+      {/* Banner de sucesso pós-agendamento (não-bloqueante, desaparece ou pode ser fechado) */}
+      {lastSubmittedUrl && (
+        <div className="mb-5 p-4 rounded-2xl bg-[#0e1711] border border-emerald-500/50 text-emerald-200 text-xs shadow-lg space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-white text-xs uppercase tracking-wider">
+              <Check size={16} className="text-emerald-400 shrink-0" />
+              <span>Agendamento salvo com sucesso!</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLastSubmittedUrl(null)}
+              className="text-zinc-400 hover:text-white cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <p className="text-[11px] text-zinc-300">
+            O WhatsApp foi aberto com os dados do seu agendamento preenchidos. Basta tocar em <strong>ENVIAR</strong> para concluir!
+          </p>
+          <a
+            href={lastSubmittedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#25D366] text-black font-bold text-xs uppercase tracking-wider hover:brightness-105 transition-all shadow-md cursor-pointer no-underline"
+          >
+            <PremiumIcon name="whatsapp" size={16} />
+            <span>Abrir WhatsApp Novamente</span>
+          </a>
+        </div>
+      )}
 
       <form onSubmit={handleBookingSubmit} className="space-y-5">
         {/* Step 1: Multiple Services Selection Badge / Dropdown */}
@@ -449,12 +410,18 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
               <span className="w-5 h-5 rounded-full bg-[#D4AF37] text-black text-xs flex items-center justify-center font-bold">3</span>
               <span>Horários Disponíveis</span>
             </div>
-            <div className="text-[11px] text-[#F1D77A] font-medium">
-              Data: {selectedDate.split('-').reverse().join('/')}
-            </div>
+            {selectedDate && (
+              <div className="text-[11px] text-[#F1D77A] font-medium">
+                Data: {selectedDate.split('-').reverse().join('/')}
+              </div>
+            )}
           </div>
 
-          {effectiveServices.length === 0 ? (
+          {!selectedDate ? (
+            <div className="p-4 rounded-xl bg-black/60 border border-white/5 text-center text-xs text-zinc-400">
+              Selecione uma data no passo 2 para visualizar os horários disponíveis.
+            </div>
+          ) : effectiveServices.length === 0 ? (
             <div className="p-4 rounded-xl bg-black/60 border border-white/5 text-center text-xs text-zinc-400">
               Selecione primeiro pelo menos um serviço para calcular a duração e visualizar os horários.
             </div>
@@ -542,11 +509,11 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={isSubmitting || !selectedTime || effectiveServices.length === 0 || isSundaySelected}
+          disabled={isSubmitting || !selectedTime || !selectedDate || effectiveServices.length === 0 || isSundaySelected}
           className="w-full py-4 px-6 rounded-2xl font-serif font-bold uppercase tracking-[0.16em] text-sm text-black bg-gradient-to-r from-[#D4AF37] via-[#F1D77A] to-[#B38728] shadow-[0_6px_25px_rgba(212,175,55,0.4)] hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer border border-[#FFF1B8]/40 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {isSubmitting ? (
-            <span>CONFIRMANDO RESERVA...</span>
+            <span>SALVANDO AGENDAMENTO...</span>
           ) : (
             <>
               <span>CONFIRMAR AGENDAMENTO</span>
@@ -558,3 +525,4 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     </section>
   );
 };
+
