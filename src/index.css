@@ -63,9 +63,57 @@
   animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* 1. Animação da logo ao entrar no site */
+@keyframes logoEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-logo-entrance {
+  animation: logoEntrance 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* 2. Animação suave e sequencial dos botões principais */
+@keyframes buttonEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-btn-entrance-1 {
+  animation: buttonEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+  will-change: transform, opacity;
+}
+
+.animate-btn-entrance-2 {
+  animation: buttonEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.28s both;
+  will-change: transform, opacity;
+}
+
+.animate-btn-entrance-3 {
+  animation: buttonEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.42s both;
+  will-change: transform, opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
-  .animate-slide-up {
+  .animate-slide-up,
+  .animate-logo-entrance,
+  .animate-btn-entrance-1,
+  .animate-btn-entrance-2,
+  .animate-btn-entrance-3 {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;

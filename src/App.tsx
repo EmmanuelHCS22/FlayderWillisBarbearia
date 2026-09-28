@@ -105,7 +105,7 @@ export default function App() {
             <img
               src={LOGO_URL}
               alt="Flayder Willis Barbearia Logo"
-              className="h-28 sm:h-36 mx-auto object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.85)] select-none transition-transform hover:scale-[1.02] duration-300"
+              className="h-28 sm:h-36 mx-auto object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.85)] select-none transition-transform hover:scale-[1.02] duration-300 animate-logo-entrance"
             />
           </div>
 
@@ -155,7 +155,7 @@ export default function App() {
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer"
+              className="group flex items-center gap-3 p-3 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer animate-btn-entrance-1"
             >
               <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
                 <PremiumIcon name="whatsapp" size={20} />
@@ -171,7 +171,7 @@ export default function App() {
               href={INSTAGRAM_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer"
+              className="group flex items-center gap-3 p-3 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer animate-btn-entrance-2"
             >
               <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
                 <PremiumIcon name="instagram" size={20} />
@@ -189,7 +189,7 @@ export default function App() {
               href={GOOGLE_REVIEW_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between p-3.5 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer"
+              className="group flex items-center justify-between p-3.5 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer animate-btn-entrance-3"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">

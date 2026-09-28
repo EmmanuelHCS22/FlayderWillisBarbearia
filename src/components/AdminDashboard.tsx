@@ -19,7 +19,9 @@ import {
   cancelAppointmentAndFreeSlot,
   blockSlotAsAdmin,
   loginAdminWithFirebase,
-  logoutAdmin
+  logoutAdmin,
+  getEstablishmentNow,
+  timeStringToMinutes
 } from '../services/bookingService';
 import {
   Lock,
@@ -84,6 +86,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'confirmed' | 'pending' | 'completed' | 'cancelled'>('all');
+  const [periodFilter, setPeriodFilter] = useState<'today' | 'custom_day' | 'this_week' | 'next_week' | 'all'>('today');
+  const [customDate, setCustomDate] = useState<string>(() => getEstablishmentNow().dateString);
 
   // Service form state
   const [isEditingService, setIsEditingService] = useState(false);
@@ -440,11 +444,109 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   if (!isOpen) return null;
 
-  // Filtered appointments
-  const filteredAppointments = appointments.filter((apt) => {
+  const todayStr = getEstablishmentNow().dateString;
+
+  // Nomes dos dias da semana em português para cabeçalhos editoriais
+  const WEEKDAY_NAMES_PT = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO'];
+
+  const parseDateToParts = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return { year: y, month: m, day: d };
+  };
+
+  const formatDateString = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const formatDayHeader = (dateStr: string): string => {
+    const { year, month, day } = parseDateToParts(dateStr);
+    const dt = new Date(year, month - 1, day, 12, 0, 0);
+    const weekday = WEEKDAY_NAMES_PT[dt.getDay()] || 'DIA';
+    const formattedDayMonth = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+    return `${weekday} — ${formattedDayMonth}`;
+  };
+
+  // Cálculo de intervalo semanal (Segunda a Domingo)
+  const getWeekRange = (referenceDateStr: string, weekOffset: number = 0) => {
+    const { year, month, day } = parseDateToParts(referenceDateStr);
+    const refDate = new Date(year, month - 1, day, 12, 0, 0);
+    const dayOfWeek = refDate.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+    const monday = new Date(refDate);
+    monday.setDate(refDate.getDate() + diffToMonday + (weekOffset * 7));
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    return {
+      startDate: formatDateString(monday),
+      endDate: formatDateString(sunday)
+    };
+  };
+
+  // 1. Filtragem por Período (Hoje, Selecionar dia, Esta semana, Próxima semana, Todos)
+  const periodFilteredAppointments = appointments.filter((apt) => {
+    if (periodFilter === 'today') {
+      return apt.date === todayStr;
+    }
+    if (periodFilter === 'custom_day') {
+      return apt.date === customDate;
+    }
+    if (periodFilter === 'this_week') {
+      const { startDate, endDate } = getWeekRange(todayStr, 0);
+      return apt.date >= startDate && apt.date <= endDate;
+    }
+    if (periodFilter === 'next_week') {
+      const { startDate, endDate } = getWeekRange(todayStr, 1);
+      return apt.date >= startDate && apt.date <= endDate;
+    }
+    return true; // 'all'
+  });
+
+  // 2. Filtragem por Status dentro do período selecionado
+  const statusFilteredAppointments = periodFilteredAppointments.filter((apt) => {
     if (appointmentFilter === 'all') return true;
     return apt.status === appointmentFilter;
   });
+
+  // 3. Organização estrita e automática: 1. Data, 2. Horário crescente (08:00 antes de 09:30, nunca 17:00 antes de 09:00)
+  const sortedAppointments = [...statusFilteredAppointments].sort((a, b) => {
+    const dateComp = a.date.localeCompare(b.date);
+    if (dateComp !== 0) return dateComp;
+    return timeStringToMinutes(a.startTime) - timeStringToMinutes(b.startTime);
+  });
+
+  // 4. Agrupamento por dia para visualização estruturada (semanal, diária, etc.)
+  const groupedByDate: { date: string; header: string; items: Appointment[] }[] = [];
+  const dateMap = new Map<string, Appointment[]>();
+
+  for (const apt of sortedAppointments) {
+    if (!dateMap.has(apt.date)) {
+      dateMap.set(apt.date, []);
+    }
+    dateMap.get(apt.date)!.push(apt);
+  }
+
+  dateMap.forEach((items, date) => {
+    groupedByDate.push({
+      date,
+      header: formatDayHeader(date),
+      items // já ordenados por horário crescente
+    });
+  });
+
+  // Agendamentos futuros para a visualização na aba Dashboard
+  const upcomingAppointments = [...appointments]
+    .filter((a) => a.date >= todayStr)
+    .sort((a, b) => {
+      const d = a.date.localeCompare(b.date);
+      if (d !== 0) return d;
+      return timeStringToMinutes(a.startTime) - timeStringToMinutes(b.startTime);
+    });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md">
@@ -760,7 +862,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <p className="text-xs text-zinc-500 py-4 text-center">Nenhum agendamento cadastrado no momento.</p>
                     ) : (
                       <div className="space-y-2.5">
-                        {appointments.slice(0, 5).map((apt) => (
+                        {(upcomingAppointments.length > 0 ? upcomingAppointments : sortedAppointments).slice(0, 5).map((apt) => (
                           <div
                             key={apt.id}
                             className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs"
@@ -1400,161 +1502,304 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </button>
                   </div>
 
-                  {/* Filter Pills */}
-                  <div className="flex gap-2 overflow-x-auto pb-1 text-xs font-semibold">
+                  {/* 1. Period Selector Filter Bar (Mobile-friendly horizontal scroll) */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Calendar size={13} className="text-[#D4AF37]" />
+                        <span>Filtrar Período:</span>
+                      </span>
+                      {periodFilter === 'this_week' && (
+                        <span className="text-[10px] text-[#F1D77A] font-medium tracking-wide">
+                          Semana Atual (Seg a Dom)
+                        </span>
+                      )}
+                      {periodFilter === 'next_week' && (
+                        <span className="text-[10px] text-[#F1D77A] font-medium tracking-wide">
+                          Próxima Semana
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs font-semibold scrollbar-none">
+                      <button
+                        type="button"
+                        onClick={() => setPeriodFilter('today')}
+                        className={`py-2 px-3.5 rounded-xl whitespace-nowrap cursor-pointer transition-colors ${
+                          periodFilter === 'today'
+                            ? 'bg-[#D4AF37] text-black font-bold shadow-sm'
+                            : 'bg-white/5 text-zinc-400 hover:text-white border border-white/5'
+                        }`}
+                      >
+                        Hoje
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPeriodFilter('custom_day')}
+                        className={`py-2 px-3.5 rounded-xl whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
+                          periodFilter === 'custom_day'
+                            ? 'bg-[#D4AF37] text-black font-bold shadow-sm'
+                            : 'bg-white/5 text-zinc-400 hover:text-white border border-white/5'
+                        }`}
+                      >
+                        <Calendar size={13} />
+                        <span>Selecionar dia</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPeriodFilter('this_week')}
+                        className={`py-2 px-3.5 rounded-xl whitespace-nowrap cursor-pointer transition-colors ${
+                          periodFilter === 'this_week'
+                            ? 'bg-[#D4AF37] text-black font-bold shadow-sm'
+                            : 'bg-white/5 text-zinc-400 hover:text-white border border-white/5'
+                        }`}
+                      >
+                        Esta semana
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPeriodFilter('next_week')}
+                        className={`py-2 px-3.5 rounded-xl whitespace-nowrap cursor-pointer transition-colors ${
+                          periodFilter === 'next_week'
+                            ? 'bg-[#D4AF37] text-black font-bold shadow-sm'
+                            : 'bg-white/5 text-zinc-400 hover:text-white border border-white/5'
+                        }`}
+                      >
+                        Próxima semana
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPeriodFilter('all')}
+                        className={`py-2 px-3.5 rounded-xl whitespace-nowrap cursor-pointer transition-colors ${
+                          periodFilter === 'all'
+                            ? 'bg-[#D4AF37] text-black font-bold shadow-sm'
+                            : 'bg-white/5 text-zinc-400 hover:text-white border border-white/5'
+                        }`}
+                      >
+                        Todos ({appointments.length})
+                      </button>
+                    </div>
+
+                    {/* Date picker modal/card when 'custom_day' is selected */}
+                    {periodFilter === 'custom_day' && (
+                      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-black/60 border border-[#D4AF37]/35 animate-fade-in">
+                        <div className="flex items-center gap-2">
+                          <Calendar size={15} className="text-[#F1D77A] shrink-0" />
+                          <span className="text-xs text-zinc-300 font-medium">Data específica:</span>
+                          <input
+                            type="date"
+                            value={customDate}
+                            onChange={(e) => setCustomDate(e.target.value)}
+                            className="bg-[#141418] border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#D4AF37] [color-scheme:dark] cursor-pointer"
+                          />
+                        </div>
+                        <span className="text-xs font-mono font-bold text-[#F1D77A]">
+                          {formatDayHeader(customDate)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Status Filter Pills */}
+                  <div className="flex gap-2 overflow-x-auto pb-1 text-xs font-semibold scrollbar-none">
                     <button
+                      type="button"
                       onClick={() => setAppointmentFilter('all')}
-                      className={`px-3 py-1.5 rounded-full cursor-pointer transition-colors ${
+                      className={`px-3 py-1.5 rounded-full cursor-pointer transition-colors whitespace-nowrap ${
                         appointmentFilter === 'all' ? 'bg-[#D4AF37] text-black font-bold' : 'bg-white/5 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Todos ({appointments.length})
+                      Todos ({periodFilteredAppointments.length})
                     </button>
                     <button
+                      type="button"
                       onClick={() => setAppointmentFilter('confirmed')}
-                      className={`px-3 py-1.5 rounded-full cursor-pointer transition-colors ${
+                      className={`px-3 py-1.5 rounded-full cursor-pointer transition-colors whitespace-nowrap ${
                         appointmentFilter === 'confirmed' ? 'bg-emerald-500 text-black font-bold' : 'bg-white/5 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Confirmados ({appointments.filter(a => a.status === 'confirmed').length})
+                      Confirmados ({periodFilteredAppointments.filter(a => a.status === 'confirmed').length})
                     </button>
                     <button
+                      type="button"
                       onClick={() => setAppointmentFilter('completed')}
-                      className={`px-3 py-1.5 rounded-full cursor-pointer transition-colors ${
+                      className={`px-3 py-1.5 rounded-full cursor-pointer transition-colors whitespace-nowrap ${
                         appointmentFilter === 'completed' ? 'bg-blue-500 text-white font-bold' : 'bg-white/5 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Concluídos ({appointments.filter(a => a.status === 'completed').length})
+                      Concluídos ({periodFilteredAppointments.filter(a => a.status === 'completed').length})
                     </button>
                     <button
+                      type="button"
                       onClick={() => setAppointmentFilter('cancelled')}
-                      className={`px-3 py-1.5 rounded-full cursor-pointer transition-colors ${
+                      className={`px-3 py-1.5 rounded-full cursor-pointer transition-colors whitespace-nowrap ${
                         appointmentFilter === 'cancelled' ? 'bg-red-500 text-white font-bold' : 'bg-white/5 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Cancelados ({appointments.filter(a => a.status === 'cancelled').length})
+                      Cancelados ({periodFilteredAppointments.filter(a => a.status === 'cancelled').length})
                     </button>
                   </div>
 
+                  {/* 3. Appointment Groups by Day & Time */}
                   {loadingAppointments ? (
                     <div className="text-center py-12 text-zinc-500 text-xs">Carregando agendamentos...</div>
-                  ) : filteredAppointments.length === 0 ? (
-                    <div className="text-center py-12 text-zinc-500 text-xs bg-black/60 rounded-2xl border border-zinc-800">
-                      Nenhum agendamento encontrado nesta categoria.
+                  ) : sortedAppointments.length === 0 ? (
+                    <div className="text-center py-12 text-zinc-400 text-xs bg-black/60 rounded-2xl border border-zinc-800 p-6 space-y-2">
+                      <Calendar size={28} className="mx-auto text-zinc-600 mb-1" />
+                      <p className="font-semibold text-zinc-300">Nenhum agendamento encontrado para este período.</p>
+                      <p className="text-[11px] text-zinc-500">
+                        {periodFilter === 'today'
+                          ? 'Não há agendamentos cadastrados para a data de hoje.'
+                          : periodFilter === 'custom_day'
+                          ? `Nenhum horário marcado em ${formatDayHeader(customDate)}.`
+                          : periodFilter === 'this_week'
+                          ? 'Não há agendamentos cadastrados para esta semana.'
+                          : periodFilter === 'next_week'
+                          ? 'Não há agendamentos cadastrados para a próxima semana.'
+                          : 'Tente selecionar outro período ou filtro de status acima.'}
+                      </p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {filteredAppointments.map((apt) => {
-                        const cleanPhone = apt.customerPhone.replace(/\D/g, '');
-                        const waUrl = cleanPhone.length >= 10
-                          ? `https://api.whatsapp.com/send?phone=55${cleanPhone}`
-                          : null;
-
-                        // Support multiple services display
-                        const servicesListDisplay = apt.services && apt.services.length > 0
-                          ? apt.services.map(s => s.name).join(' + ')
-                          : apt.serviceName;
-
-                        return (
-                          <div
-                            key={apt.id}
-                            className="p-4 rounded-2xl bg-black border border-[#D4AF37]/30 space-y-3 text-xs shadow-md"
-                          >
-                            <div className="flex flex-wrap justify-between items-start gap-2">
-                              <div>
-                                <div className="font-bold text-sm text-white flex items-center gap-2">
-                                  <span>{apt.customerName}</span>
-                                </div>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-zinc-400 flex items-center gap-1">
-                                    <Phone size={12} className="text-[#D4AF37]" />
-                                    <span>{apt.customerPhone}</span>
-                                  </span>
-                                  {waUrl && (
-                                    <a
-                                      href={waUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#25D366] hover:underline"
-                                    >
-                                      <span>Conversar no WhatsApp</span>
-                                      <ExternalLink size={10} />
-                                    </a>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span
-                                  className={`text-[10px] font-bold uppercase px-3 py-1 rounded-full ${
-                                    apt.status === 'confirmed'
-                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                      : apt.status === 'completed'
-                                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                      : apt.status === 'cancelled'
-                                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                      : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                                  }`}
-                                >
-                                  {apt.status === 'confirmed' ? 'Confirmado' : apt.status === 'completed' ? 'Concluído' : apt.status === 'cancelled' ? '🔴 CANCELADO' : 'Pendente'}
+                    <div className="space-y-6">
+                      {groupedByDate.map((group) => (
+                        <div key={group.date} className="space-y-3">
+                          {/* Day Header (Exemplo do Prompt: SEGUNDA — 28/09) */}
+                          <div className="flex items-center justify-between border-b border-[#D4AF37]/35 pb-2 pt-1 bg-white/[0.02] px-2 rounded-t-lg">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-[#D4AF37]" />
+                              <h5 className="font-serif font-bold text-xs uppercase tracking-wider text-[#F1D77A]">
+                                {group.header}
+                              </h5>
+                              {group.date === todayStr && (
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[#D4AF37]/20 text-[#F1D77A] border border-[#D4AF37]/40">
+                                  Hoje
                                 </span>
-                              </div>
-                            </div>
-
-                            {/* Details Grid (Multiple services support, total price, duration) */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-white/5 p-3 rounded-xl text-[11px] border border-white/5">
-                              <div>
-                                <span className="text-zinc-500 block uppercase text-[10px]">Serviços Selecionados:</span>
-                                <strong className="text-[#F1D77A] text-xs font-semibold">{servicesListDisplay}</strong>
-                              </div>
-                              <div>
-                                <span className="text-zinc-500 block uppercase text-[10px]">Data & Horário:</span>
-                                <strong className="text-white text-xs">
-                                  {apt.date.split('-').reverse().join('/')} às {apt.startTime}
-                                </strong>
-                                <span className="text-zinc-400 block text-[10px] mt-0.5">
-                                  Término previsto: {apt.endTime}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-zinc-500 block uppercase text-[10px]">Duração & Valor Total:</span>
-                                <span className="text-white font-semibold">{apt.serviceDuration} minutos</span>
-                                <span className="text-[#F1D77A] font-bold block text-xs mt-0.5">
-                                  Total: R$ {Number(apt.servicePrice).toFixed(2).replace('.', ',')}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Status Actions */}
-                            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
-                              {apt.status !== 'confirmed' && apt.status !== 'completed' && (
-                                <button
-                                  onClick={() => handleUpdateAppointmentStatus(apt, 'confirmed')}
-                                  className="flex-1 min-w-[90px] py-1.5 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 cursor-pointer uppercase"
-                                >
-                                  CONFIRMAR
-                                </button>
-                              )}
-                              {apt.status !== 'completed' && (
-                                <button
-                                  onClick={() => handleUpdateAppointmentStatus(apt, 'completed')}
-                                  className="flex-1 min-w-[90px] py-1.5 px-3 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-400 text-xs font-bold hover:bg-blue-500/30 cursor-pointer uppercase"
-                                >
-                                  CONCLUIR
-                                </button>
-                              )}
-                              {apt.status !== 'cancelled' && (
-                                <button
-                                  onClick={() => handleUpdateAppointmentStatus(apt, 'cancelled')}
-                                  className="flex-1 min-w-[120px] py-1.5 px-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-bold hover:bg-red-500/30 cursor-pointer uppercase"
-                                >
-                                  CANCELAR & LIBERAR
-                                </button>
                               )}
                             </div>
+                            <span className="text-[11px] text-zinc-400 font-mono">
+                              {group.items.length} {group.items.length === 1 ? 'cliente' : 'clientes'}
+                            </span>
                           </div>
-                        );
-                      })}
+
+                          {/* Lista do dia ordenada estritamente do horário mais cedo para o mais tarde */}
+                          <div className="space-y-3">
+                            {group.items.map((apt) => {
+                              const cleanPhone = apt.customerPhone.replace(/\D/g, '');
+                              const waUrl = cleanPhone.length >= 10
+                                ? `https://api.whatsapp.com/send?phone=55${cleanPhone}`
+                                : null;
+
+                              const servicesListDisplay = apt.services && apt.services.length > 0
+                                ? apt.services.map(s => s.name).join(' + ')
+                                : apt.serviceName;
+
+                              return (
+                                <div
+                                  key={apt.id}
+                                  className="p-4 rounded-2xl bg-black border border-[#D4AF37]/30 space-y-3 text-xs shadow-md"
+                                >
+                                  <div className="flex flex-wrap justify-between items-start gap-2">
+                                    <div>
+                                      <div className="font-bold text-sm text-white flex items-center gap-2">
+                                        <span className="text-[#F1D77A] font-mono text-sm font-semibold">
+                                          {apt.startTime}
+                                        </span>
+                                        <span className="text-zinc-500">—</span>
+                                        <span>{apt.customerName}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-zinc-400 flex items-center gap-1">
+                                          <Phone size={12} className="text-[#D4AF37]" />
+                                          <span>{apt.customerPhone}</span>
+                                        </span>
+                                        {waUrl && (
+                                          <a
+                                            href={waUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#25D366] hover:underline ml-1"
+                                          >
+                                            <span>WhatsApp</span>
+                                            <ExternalLink size={10} />
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span
+                                        className={`text-[10px] font-bold uppercase px-3 py-1 rounded-full ${
+                                          apt.status === 'confirmed'
+                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                            : apt.status === 'completed'
+                                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                            : apt.status === 'cancelled'
+                                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                            : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                        }`}
+                                      >
+                                        {apt.status === 'confirmed' ? 'Confirmado' : apt.status === 'completed' ? 'Concluído' : apt.status === 'cancelled' ? '🔴 CANCELADO' : 'Pendente'}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Details Grid */}
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-white/5 p-3 rounded-xl text-[11px] border border-white/5">
+                                    <div>
+                                      <span className="text-zinc-500 block uppercase text-[10px]">Serviços Selecionados:</span>
+                                      <strong className="text-[#F1D77A] text-xs font-semibold">{servicesListDisplay}</strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-zinc-500 block uppercase text-[10px]">Data & Horário:</span>
+                                      <strong className="text-white text-xs">
+                                        {apt.date.split('-').reverse().join('/')} às {apt.startTime}
+                                      </strong>
+                                      <span className="text-zinc-400 block text-[10px] mt-0.5">
+                                        Término previsto: {apt.endTime}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-zinc-500 block uppercase text-[10px]">Duração & Valor Total:</span>
+                                      <span className="text-white font-semibold">{apt.serviceDuration} minutos</span>
+                                      <span className="text-[#F1D77A] font-bold block text-xs mt-0.5">
+                                        Total: R$ {Number(apt.servicePrice).toFixed(2).replace('.', ',')}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Status Actions */}
+                                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+                                    {apt.status !== 'confirmed' && apt.status !== 'completed' && (
+                                      <button
+                                        onClick={() => handleUpdateAppointmentStatus(apt, 'confirmed')}
+                                        className="flex-1 min-w-[90px] py-1.5 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 cursor-pointer uppercase"
+                                      >
+                                        CONFIRMAR
+                                      </button>
+                                    )}
+                                    {apt.status !== 'completed' && (
+                                      <button
+                                        onClick={() => handleUpdateAppointmentStatus(apt, 'completed')}
+                                        className="flex-1 min-w-[90px] py-1.5 px-3 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-400 text-xs font-bold hover:bg-blue-500/30 cursor-pointer uppercase"
+                                      >
+                                        CONCLUIR
+                                      </button>
+                                    )}
+                                    {apt.status !== 'cancelled' && (
+                                      <button
+                                        onClick={() => handleUpdateAppointmentStatus(apt, 'cancelled')}
+                                        className="flex-1 min-w-[120px] py-1.5 px-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-bold hover:bg-red-500/30 cursor-pointer uppercase"
+                                      >
+                                        CANCELAR & LIBERAR
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
