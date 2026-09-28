@@ -38,6 +38,7 @@ export interface Appointment {
   startTime: string; // HH:mm
   endTime: string; // HH:mm
   status: AppointmentStatus;
+  cancelledAt?: any;
   notificationStatus?: NotificationStatus;
   notificationSentAt?: string;
   notificationMessageId?: string;

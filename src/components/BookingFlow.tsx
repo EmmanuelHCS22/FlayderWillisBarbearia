@@ -5,10 +5,12 @@ import {
   subscribeToAppointmentsForDate,
   computeSlotAvailability,
   bookAppointmentAtomically,
-  generateWhatsAppUrl
+  generateWhatsAppUrl,
+  getEstablishmentNow,
+  timeStringToMinutes
 } from '../services/bookingService';
 import { PremiumIcon } from './PremiumIcon';
-import { AlertTriangle, User, Phone, ArrowRight, Check, X } from 'lucide-react';
+import { AlertTriangle, User, Phone, ArrowRight, Check, X, Clock, CalendarDays } from 'lucide-react';
 
 interface BookingFlowProps {
   services: Service[];
@@ -27,7 +29,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
   onToggleService,
   onClearServices
 }) => {
-  // Determine effective selected services list (combining single and multi props seamlessly)
+  // Determine effective selected services list
   const effectiveServices: Service[] = selectedServices.length > 0
     ? selectedServices
     : selectedService
@@ -38,14 +40,21 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
   const totalPrice = effectiveServices.reduce((sum, s) => sum + s.price, 0);
   const serviceNamesDisplay = effectiveServices.map(s => s.name).join(' + ');
 
-  // Today formatted as YYYY-MM-DD
-  const getTodayString = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  // Dynamic establishment current time & date (America/Sao_Paulo)
+  const [establishmentNow, setEstablishmentNow] = useState(() => getEstablishmentNow());
+
+  useEffect(() => {
+    const updateTime = () => {
+      setEstablishmentNow(getEstablishmentNow());
+    };
+
+    // Update real-time clock every 10 seconds
+    const timer = setInterval(updateTime, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Today formatted as YYYY-MM-DD in establishment timezone
+  const getTodayString = () => establishmentNow.dateString;
 
   const isSunday = (dateStr: string) => {
     if (!dateStr) return false;
@@ -81,11 +90,18 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     return () => unsubscribe();
   }, [selectedDate]);
 
-  // Compute slot availability: If Sunday or no date, no slots available
+  // Compute slot availability
   const isSundaySelected = isSunday(selectedDate);
   const availableSlots = (!selectedDate || isSundaySelected)
     ? []
-    : computeSlotAvailability(BASE_TIME_SLOTS, appointmentsOnDate, totalDuration);
+    : computeSlotAvailability(
+        BASE_TIME_SLOTS,
+        appointmentsOnDate,
+        totalDuration,
+        selectedDate,
+        establishmentNow.currentMinutes,
+        establishmentNow.dateString
+      );
 
   // Auto-clear selectedTime if it is no longer available in real-time
   useEffect(() => {
@@ -131,6 +147,18 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
       setBookingError('Por favor, escolha um dos horários disponíveis.');
       return;
     }
+    if (selectedDate < establishmentNow.dateString) {
+      setBookingError('Não é possível agendar para uma data anterior à data atual.');
+      return;
+    }
+    if (selectedDate === establishmentNow.dateString) {
+      const slotMin = timeStringToMinutes(selectedTime);
+      if (slotMin < establishmentNow.currentMinutes) {
+        setBookingError('O horário selecionado já passou. Por favor, escolha um horário futuro disponível.');
+        setSelectedTime(null);
+        return;
+      }
+    }
     if (!customerName.trim()) {
       setBookingError('Por favor, informe seu nome completo.');
       return;
@@ -143,7 +171,6 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
 
     setIsSubmitting(true);
 
-    // Save appointment to Firestore first (Requirement #3)
     const result = await bookAppointmentAtomically({
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
@@ -162,7 +189,6 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     });
 
     if (result.success && result.appointmentId) {
-      // 2, 3, 4, 5: Generate WhatsApp URL with prefilled message containing all details
       const waUrl = generateWhatsAppUrl({
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
@@ -179,11 +205,9 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
         startTime: selectedTime,
       });
 
-      // Abrir o WhatsApp utilizando o link com a mensagem pré-preenchida
       try {
         const opened = window.open(waUrl, '_blank');
         if (!opened) {
-          // Em caso de popup blocker, simula clique em tag âncora
           const tempLink = document.createElement('a');
           tempLink.href = waUrl;
           tempLink.target = '_blank';
@@ -196,28 +220,19 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
         console.error('Erro ao abrir WhatsApp:', err);
       }
 
-      // Salva URL para banner informativo não-bloqueante
       setLastSubmittedUrl(waUrl);
 
-      // Auto-remover banner informativo após 10 segundos
       setTimeout(() => {
         setLastSubmittedUrl(null);
-      }, 10000);
+      }, 12000);
 
-      // 6, 7, 8, 9, 10: RESETAR COMPLETAMENTE O AGENDAMENTO APÓS A CONFIRMAÇÃO
-      // Limpar todos os serviços selecionados
+      // Reset form states cleanly
       if (onClearServices) onClearServices();
       if (onSelectService) onSelectService(null);
-
-      // Limpar data e horário (voltar ao estado inicial)
       setSelectedDate('');
       setSelectedTime(null);
-
-      // Limpar dados do cliente (deixar campos vazios)
       setCustomerName('');
       setCustomerPhone('');
-
-      // Limpar erros e finalizar submissão
       setBookingError(null);
       setIsSubmitting(false);
 
@@ -230,27 +245,28 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
   };
 
   return (
-    <section id="agendamento" className="w-full max-w-md mx-auto px-4 py-8 scroll-mt-14">
-      <div className="text-center mb-6">
-        <span className="text-[11px] font-bold tracking-[0.25em] text-[#D4AF37] uppercase">
-          Reserva Rápida
+    <section id="agendamento" className="w-full max-w-xl mx-auto px-4 py-10 scroll-mt-16">
+      {/* Section Header */}
+      <div className="text-center mb-8">
+        <span className="text-[11px] font-semibold tracking-[0.28em] text-[#C5A059] uppercase block mb-1">
+          Reserva Direta
         </span>
-        <h2 className="text-2xl font-serif tracking-wide text-white uppercase font-semibold mt-1">
+        <h2 className="text-2xl sm:text-3xl font-serif tracking-wide text-zinc-100 uppercase font-semibold">
           Agendar Horário
         </h2>
-        <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mx-auto mt-2" />
-        <p className="text-xs text-zinc-400 mt-2">
-          Escolha os serviços, a data e selecione o melhor horário para você.
+        <div className="w-10 h-px bg-[#C5A059]/60 mx-auto mt-3" />
+        <p className="text-xs text-zinc-400 mt-2.5 max-w-md mx-auto leading-relaxed">
+          Selecione data, horário e confirme sua visita em poucos toques.
         </p>
       </div>
 
-      {/* Banner de sucesso pós-agendamento (não-bloqueante, desaparece ou pode ser fechado) */}
+      {/* Success Banner */}
       {lastSubmittedUrl && (
-        <div className="mb-5 p-4 rounded-2xl bg-[#0e1711] border border-emerald-500/50 text-emerald-200 text-xs shadow-lg space-y-2.5">
+        <div className="mb-6 p-4 rounded-lg bg-[#0F1411] border border-emerald-500/40 text-emerald-100 text-xs shadow-md space-y-3 animate-fade-in">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 font-bold text-white text-xs uppercase tracking-wider">
+            <div className="flex items-center gap-2 font-medium text-white text-xs uppercase tracking-wider">
               <Check size={16} className="text-emerald-400 shrink-0" />
-              <span>Agendamento salvo com sucesso!</span>
+              <span>Agendamento Registrado com Sucesso</span>
             </div>
             <button
               type="button"
@@ -260,44 +276,46 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
               <X size={14} />
             </button>
           </div>
-          <p className="text-[11px] text-zinc-300">
-            O WhatsApp foi aberto com os dados do seu agendamento preenchidos. Basta tocar em <strong>ENVIAR</strong> para concluir!
+          <p className="text-[11px] text-zinc-300 leading-relaxed">
+            Seus dados foram salvos. O WhatsApp foi aberto para você enviar a mensagem de confirmação.
           </p>
           <a
             href={lastSubmittedUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#25D366] text-black font-bold text-xs uppercase tracking-wider hover:brightness-105 transition-all shadow-md cursor-pointer no-underline"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#25D366] text-black font-semibold text-xs uppercase tracking-wider hover:brightness-105 transition-all cursor-pointer"
           >
-            <PremiumIcon name="whatsapp" size={16} />
-            <span>Abrir WhatsApp Novamente</span>
+            <PremiumIcon name="whatsapp" size={15} />
+            <span>Reabrir WhatsApp</span>
           </a>
         </div>
       )}
 
-      <form onSubmit={handleBookingSubmit} className="space-y-5">
-        {/* Step 1: Multiple Services Selection Badge / Dropdown */}
-        <div className="bg-[#0A0A0A] border border-[#D4AF37]/25 rounded-2xl p-4 shadow-md">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-              <span className="w-5 h-5 rounded-full bg-[#D4AF37] text-black text-xs flex items-center justify-center font-bold">1</span>
-              <span>Serviços Selecionados</span>
+      <form onSubmit={handleBookingSubmit} className="space-y-6">
+        {/* Step 1: Services Selection */}
+        <div className="p-4 sm:p-5 rounded-xl bg-[#0F0F12] border border-zinc-800/90">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-[#C5A059] font-bold">01.</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-200">
+                Serviços Selecionados
+              </span>
             </div>
             {effectiveServices.length > 0 && onClearServices && (
               <button
                 type="button"
                 onClick={onClearServices}
-                className="text-[11px] text-zinc-400 hover:text-red-400 cursor-pointer"
+                className="text-[11px] text-zinc-500 hover:text-red-400 transition-colors cursor-pointer"
               >
-                Limpar seleção
+                Limpar
               </button>
             )}
           </div>
 
           {effectiveServices.length === 0 ? (
-            <div className="text-center py-3 px-2 border border-dashed border-zinc-800 rounded-xl bg-black/40">
+            <div className="py-4 px-3 border border-dashed border-zinc-800 rounded-lg text-center bg-black/30">
               <p className="text-xs text-zinc-400">
-                Nenhum serviço selecionado ainda. Toque na lista acima ou escolha abaixo:
+                Nenhum serviço selecionado ainda. Escolha no menu acima ou selecione abaixo:
               </p>
               <select
                 onChange={(e) => {
@@ -305,10 +323,10 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
                   if (s && onToggleService) onToggleService(s);
                   else if (s && onSelectService) onSelectService(s);
                 }}
-                className="mt-2.5 w-full bg-[#121212] border border-[#D4AF37]/40 rounded-xl px-3 py-2 text-white text-xs"
+                className="mt-3 w-full bg-[#16161A] border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-[#C5A059]"
                 defaultValue=""
               >
-                <option value="" disabled>Escolha um serviço...</option>
+                <option value="" disabled>Selecione um serviço...</option>
                 {activeServices.map(srv => (
                   <option key={srv.id} value={srv.id}>
                     {srv.name} — R$ {srv.price.toFixed(2).replace('.', ',')} ({srv.duration} min)
@@ -317,20 +335,23 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
               </select>
             </div>
           ) : (
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
                 {effectiveServices.map((srv) => (
                   <span
                     key={srv.id}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-xs font-semibold text-[#F1D77A]"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-zinc-900 border border-zinc-700/80 text-xs text-zinc-200"
                   >
-                    <span>{srv.name}</span>
-                    <span className="text-[10px] text-zinc-400">({srv.duration}m • R${srv.price})</span>
+                    <span className="font-medium">{srv.name}</span>
+                    <span className="text-[11px] text-zinc-400 font-mono">
+                      R$ {srv.price.toFixed(2).replace('.', ',')}
+                    </span>
                     {onToggleService && (
                       <button
                         type="button"
                         onClick={() => onToggleService(srv)}
-                        className="hover:text-red-400 ml-0.5 cursor-pointer"
+                        aria-label={`Remover ${srv.name}`}
+                        className="text-zinc-500 hover:text-red-400 ml-0.5 cursor-pointer"
                       >
                         <X size={13} />
                       </button>
@@ -339,9 +360,9 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
                 ))}
               </div>
 
-              {/* Add more service quick selector */}
-              {onToggleService && (
-                <div className="pt-2 flex items-center gap-2">
+              {/* Quick Add Another Service */}
+              {onToggleService && activeServices.some(s => !effectiveServices.some(es => es.id === s.id)) && (
+                <div className="pt-1">
                   <select
                     onChange={(e) => {
                       const s = activeServices.find(srv => srv.id === e.target.value);
@@ -349,32 +370,41 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
                       e.target.value = '';
                     }}
                     defaultValue=""
-                    className="flex-1 bg-[#121212] border border-white/10 rounded-xl px-3 py-1.5 text-zinc-300 text-xs focus:border-[#D4AF37]"
+                    className="w-full bg-[#141418] border border-zinc-800 rounded-lg px-3 py-2 text-zinc-400 text-xs focus:outline-none focus:border-[#C5A059]"
                   >
                     <option value="" disabled>+ Adicionar outro serviço...</option>
-                    {activeServices.filter(s => !effectiveServices.some(es => es.id === s.id)).map(srv => (
-                      <option key={srv.id} value={srv.id}>
-                        {srv.name} — R$ {srv.price.toFixed(2).replace('.', ',')} ({srv.duration} min)
-                      </option>
-                    ))}
+                    {activeServices
+                      .filter(s => !effectiveServices.some(es => es.id === s.id))
+                      .map(srv => (
+                        <option key={srv.id} value={srv.id}>
+                          {srv.name} — R$ {srv.price.toFixed(2).replace('.', ',')} ({srv.duration} min)
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}
 
               {/* Total Calculation Display */}
-              <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs px-1">
-                <span>Duração Total: <strong className="text-white">{totalDuration} minutos</strong></span>
-                <span>Valor Total: <strong className="text-[#F1D77A] text-sm">R$ {totalPrice.toFixed(2).replace('.', ',')}</strong></span>
+              <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-300">
+                <span className="flex items-center gap-1.5">
+                  <Clock size={13} className="text-zinc-500" />
+                  <span>Duração: <strong className="text-white font-medium">{totalDuration} min</strong></span>
+                </span>
+                <span>
+                  Total: <strong className="text-[#E5CA85] text-sm font-mono font-semibold">R$ {totalPrice.toFixed(2).replace('.', ',')}</strong>
+                </span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Step 2: Date Picker (Sunday Closed Validation) */}
-        <div className="bg-[#0A0A0A] border border-[#D4AF37]/25 rounded-2xl p-4 shadow-md">
-          <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-zinc-200">
-            <span className="w-5 h-5 rounded-full bg-[#D4AF37] text-black text-xs flex items-center justify-center font-bold">2</span>
-            <span>Escolha a Data</span>
+        {/* Step 2: Date Picker */}
+        <div className="p-4 sm:p-5 rounded-xl bg-[#0F0F12] border border-zinc-800/90">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[11px] font-mono text-[#C5A059] font-bold">02.</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-200">
+              Escolha a Data
+            </span>
           </div>
 
           <div className="relative">
@@ -386,85 +416,97 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
                 setSelectedDate(e.target.value);
                 setSelectedTime(null);
               }}
-              className="w-full bg-[#121212] border border-[#D4AF37]/40 rounded-xl px-4 py-3 text-white text-sm font-medium focus:outline-none focus:border-[#F1D77A] transition-colors [color-scheme:dark] cursor-pointer"
+              className="w-full bg-[#16161A] border border-zinc-700/80 rounded-lg px-3.5 py-2.5 text-zinc-100 text-sm focus:outline-none focus:border-[#C5A059] transition-colors [color-scheme:dark] cursor-pointer"
               required
             />
           </div>
 
           {isSundaySelected ? (
-            <div className="mt-2.5 p-2.5 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs flex items-center gap-2">
+            <div className="mt-3 p-3 rounded bg-red-950/60 border border-red-800/50 text-red-200 text-xs flex items-center gap-2">
               <AlertTriangle size={15} className="shrink-0 text-red-400" />
               <span>A barbearia está fechada aos domingos. Selecione de segunda a sábado.</span>
             </div>
           ) : (
-            <p className="text-[11px] text-zinc-400 mt-2">
-              Funcionamento: Segunda a Sábado das 08:00 às 19:30. Domingo fechado.
+            <p className="text-[11px] text-zinc-500 mt-2">
+              Segunda a Sábado: 08:00 às 19:30 • Domingo fechado.
             </p>
           )}
         </div>
 
         {/* Step 3: Slots Grid */}
-        <div className="bg-[#0A0A0A] border border-[#D4AF37]/25 rounded-2xl p-4 shadow-md">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-              <span className="w-5 h-5 rounded-full bg-[#D4AF37] text-black text-xs flex items-center justify-center font-bold">3</span>
-              <span>Horários Disponíveis</span>
+        <div className="p-4 sm:p-5 rounded-xl bg-[#0F0F12] border border-zinc-800/90">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-[#C5A059] font-bold">03.</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-200">
+                Horários Disponíveis
+              </span>
             </div>
             {selectedDate && (
-              <div className="text-[11px] text-[#F1D77A] font-medium">
-                Data: {selectedDate.split('-').reverse().join('/')}
-              </div>
+              <span className="text-[11px] font-mono text-[#C5A059]">
+                {selectedDate.split('-').reverse().join('/')}
+              </span>
             )}
           </div>
 
           {!selectedDate ? (
-            <div className="p-4 rounded-xl bg-black/60 border border-white/5 text-center text-xs text-zinc-400">
-              Selecione uma data no passo 2 para visualizar os horários disponíveis.
+            <div className="py-6 px-4 rounded-lg bg-black/30 border border-zinc-800/80 text-center text-xs text-zinc-500">
+              Selecione uma data no passo anterior para visualizar os horários.
             </div>
           ) : effectiveServices.length === 0 ? (
-            <div className="p-4 rounded-xl bg-black/60 border border-white/5 text-center text-xs text-zinc-400">
-              Selecione primeiro pelo menos um serviço para calcular a duração e visualizar os horários.
+            <div className="py-6 px-4 rounded-lg bg-black/30 border border-zinc-800/80 text-center text-xs text-zinc-500">
+              Selecione pelo menos um serviço para calcular a duração e os horários.
             </div>
           ) : isSundaySelected ? (
-            <div className="p-4 rounded-xl bg-black/60 border border-white/5 text-center text-xs text-zinc-400">
-              Barbearia fechada aos domingos. Escolha outro dia da semana.
+            <div className="py-6 px-4 rounded-lg bg-black/30 border border-zinc-800/80 text-center text-xs text-zinc-500">
+              Barbearia fechada aos domingos. Selecione outro dia.
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-2">
-              {availableSlots.map((slot) => {
-                const isSelected = selectedTime === slot.time;
-                return (
-                  <button
-                    key={slot.time}
-                    type="button"
-                    disabled={!slot.available}
-                    onClick={() => setSelectedTime(slot.time)}
-                    title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
-                    className={`py-2.5 px-1 rounded-xl text-xs font-semibold transition-all relative flex flex-col items-center justify-center cursor-pointer ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-[#D4AF37] to-[#F1D77A] text-black shadow-[0_0_15px_rgba(212,175,55,0.7)] font-bold scale-[1.02]'
-                        : slot.available
-                        ? 'bg-black border border-[#D4AF37]/40 text-zinc-200 hover:border-[#F1D77A] hover:bg-[#151515]'
-                        : 'bg-zinc-950 border border-zinc-800/60 text-zinc-600 line-through opacity-40 cursor-not-allowed'
-                    }`}
-                  >
-                    <span>{slot.formatted}</span>
-                  </button>
-                );
-              })}
+            <div>
+              <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
+                {availableSlots.map((slot) => {
+                  const isSelected = selectedTime === slot.time;
+                  return (
+                    <button
+                      key={slot.time}
+                      type="button"
+                      disabled={!slot.available}
+                      onClick={() => setSelectedTime(slot.time)}
+                      title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
+                      className={`py-2.5 px-2 rounded text-xs font-mono font-medium transition-all relative flex items-center justify-center cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#C5A059] text-black font-bold shadow-sm'
+                          : slot.available
+                          ? 'bg-[#18181D] border border-zinc-700/80 text-zinc-200 hover:border-zinc-500 hover:text-white'
+                          : 'bg-zinc-950/60 border border-zinc-900 text-zinc-600 line-through opacity-35 cursor-not-allowed'
+                      }`}
+                    >
+                      <span>{slot.formatted}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {availableSlots.length > 0 && availableSlots.every(s => !s.available) && (
+                <p className="text-[11px] text-zinc-400 text-center mt-3 leading-relaxed">
+                  Não há mais horários disponíveis para hoje. Por favor, escolha outra data.
+                </p>
+              )}
             </div>
           )}
         </div>
 
-        {/* Step 4: Customer Details & Confirmation */}
-        <div className="bg-[#0A0A0A] border border-[#D4AF37]/25 rounded-2xl p-4 shadow-md space-y-3">
-          <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-zinc-200">
-            <span className="w-5 h-5 rounded-full bg-[#D4AF37] text-black text-xs flex items-center justify-center font-bold">4</span>
-            <span>Seus Dados</span>
+        {/* Step 4: Customer Details */}
+        <div className="p-4 sm:p-5 rounded-xl bg-[#0F0F12] border border-zinc-800/90 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] font-mono text-[#C5A059] font-bold">04.</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-200">
+              Seus Dados
+            </span>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+            <label className="block text-xs text-zinc-300 font-medium mb-1.5">
               Nome Completo
             </label>
             <div className="relative">
@@ -473,15 +515,15 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
                 placeholder="Ex: João da Silva"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full bg-[#121212] border border-[#D4AF37]/40 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#F1D77A] pl-10"
+                className="w-full bg-[#16161A] border border-zinc-700/80 rounded-lg px-3.5 py-2.5 text-zinc-100 text-sm focus:outline-none focus:border-[#C5A059] pl-10"
                 required
               />
-              <User size={16} className="absolute left-3.5 top-3.5 text-zinc-400" />
+              <User size={15} className="absolute left-3.5 top-3 text-zinc-500" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+            <label className="block text-xs text-zinc-300 font-medium mb-1.5">
               WhatsApp com DDD
             </label>
             <div className="relative">
@@ -490,34 +532,34 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
                 placeholder="(34) 90000-0000"
                 value={customerPhone}
                 onChange={handlePhoneChange}
-                className="w-full bg-[#121212] border border-[#D4AF37]/40 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#F1D77A] pl-10"
+                className="w-full bg-[#16161A] border border-zinc-700/80 rounded-lg px-3.5 py-2.5 text-zinc-100 text-sm focus:outline-none focus:border-[#C5A059] pl-10"
                 required
               />
-              <Phone size={16} className="absolute left-3.5 top-3.5 text-zinc-400" />
+              <Phone size={15} className="absolute left-3.5 top-3 text-zinc-500" />
             </div>
           </div>
         </div>
 
         {/* Error Notification */}
         {bookingError && (
-          <div className="p-3.5 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs flex items-start gap-2.5">
-            <AlertTriangle size={16} className="shrink-0 text-red-400 mt-0.5" />
+          <div className="p-3.5 rounded-lg bg-red-950/70 border border-red-800/50 text-red-200 text-xs flex items-start gap-2.5">
+            <AlertTriangle size={15} className="shrink-0 text-red-400 mt-0.5" />
             <span>{bookingError}</span>
           </div>
         )}
 
-        {/* Submit Button */}
+        {/* Confirmation Button */}
         <button
           type="submit"
           disabled={isSubmitting || !selectedTime || !selectedDate || effectiveServices.length === 0 || isSundaySelected}
-          className="w-full py-4 px-6 rounded-2xl font-serif font-bold uppercase tracking-[0.16em] text-sm text-black bg-gradient-to-r from-[#D4AF37] via-[#F1D77A] to-[#B38728] shadow-[0_6px_25px_rgba(212,175,55,0.4)] hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer border border-[#FFF1B8]/40 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full py-4 px-6 rounded-lg font-serif font-bold uppercase tracking-[0.16em] text-sm text-black bg-[#C5A059] hover:bg-[#D5B069] active:translate-y-0.5 transition-all cursor-pointer shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {isSubmitting ? (
-            <span>SALVANDO AGENDAMENTO...</span>
+            <span>Processando Agendamento...</span>
           ) : (
             <>
-              <span>CONFIRMAR AGENDAMENTO</span>
-              <ArrowRight size={18} />
+              <span>Confirmar Agendamento</span>
+              <ArrowRight size={16} />
             </>
           )}
         </button>
@@ -525,4 +567,3 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({
     </section>
   );
 };
-

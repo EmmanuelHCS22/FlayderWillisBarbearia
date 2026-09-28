@@ -781,7 +781,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 apt.status === 'cancelled' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
                                 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                               }`}>
-                                {apt.status === 'confirmed' ? 'Confirmado' : apt.status === 'completed' ? 'Concluído' : apt.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
+                                {apt.status === 'confirmed' ? 'Confirmado' : apt.status === 'completed' ? 'Concluído' : apt.status === 'cancelled' ? '🔴 CANCELADO' : 'Pendente'}
                               </span>
                             </div>
                           </div>
@@ -1496,7 +1496,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                                   }`}
                                 >
-                                  {apt.status === 'confirmed' ? 'Confirmado' : apt.status === 'completed' ? 'Concluído' : apt.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
+                                  {apt.status === 'confirmed' ? 'Confirmado' : apt.status === 'completed' ? 'Concluído' : apt.status === 'cancelled' ? '🔴 CANCELADO' : 'Pendente'}
                                 </span>
                               </div>
                             </div>

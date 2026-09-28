@@ -11,7 +11,8 @@ import {
   where,
   orderBy,
   runTransaction,
-  onSnapshot
+  onSnapshot,
+  serverTimestamp
 } from 'firebase/firestore';
 import {
   ref,
@@ -548,6 +549,7 @@ export async function cancelAppointmentAndFreeSlot(appointment: Appointment): Pr
 
   await updateDoc(aptRef, {
     status: 'cancelled',
+    cancelledAt: serverTimestamp(),
     updatedAt: nowIso
   });
 
@@ -569,8 +571,79 @@ export async function cancelAppointmentAndFreeSlot(appointment: Appointment): Pr
 }
 
 /**
- * Time utility functions
+ * Time utility functions & Establishment Timezone (Uberlândia - MG, Brasil)
  */
+export const ESTABLISHMENT_TIMEZONE = 'America/Sao_Paulo';
+
+/**
+ * Returns current date and time in the establishment's timezone.
+ */
+export function getEstablishmentNow(): {
+  dateString: string; // YYYY-MM-DD
+  currentMinutes: number; // total minutes since midnight (0..1439)
+  hours: number;
+  minutes: number;
+  dayOfWeek: number; // 0 = Sunday, 1 = Monday, ...
+} {
+  const now = new Date();
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: ESTABLISHMENT_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
+    });
+
+    const parts = formatter.formatToParts(now);
+    let year = '';
+    let month = '';
+    let day = '';
+    let hour = 0;
+    let minute = 0;
+
+    for (const p of parts) {
+      if (p.type === 'year') year = p.value;
+      if (p.type === 'month') month = p.value;
+      if (p.type === 'day') day = p.value;
+      if (p.type === 'hour') hour = parseInt(p.value, 10);
+      if (p.type === 'minute') minute = parseInt(p.value, 10);
+    }
+
+    const dateString = `${year}-${month}-${day}`;
+    const weekdayFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: ESTABLISHMENT_TIMEZONE,
+      weekday: 'short'
+    });
+    const weekdayStr = weekdayFormatter.format(now);
+    const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const dayOfWeek = dayMap[weekdayStr] ?? now.getDay();
+
+    return {
+      dateString,
+      currentMinutes: hour * 60 + minute,
+      hours: hour,
+      minutes: minute,
+      dayOfWeek
+    };
+  } catch (err) {
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const h = now.getHours();
+    const min = now.getMinutes();
+    return {
+      dateString: `${y}-${m}-${d}`,
+      currentMinutes: h * 60 + min,
+      hours: h,
+      minutes: min,
+      dayOfWeek: now.getDay()
+    };
+  }
+}
+
 export function timeStringToMinutes(timeStr: string): number {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + (minutes || 0);
@@ -630,19 +703,50 @@ export function subscribeToAppointmentsForDate(
 
 /**
  * Computes availability of base slots for a given date and service duration,
- * considering all existing active appointments on that date from Firestore.
+ * considering all existing active appointments on that date from Firestore
+ * and dynamically blocking past slots when scheduling for the current date.
  */
 export function computeSlotAvailability(
   baseSlots: string[],
   activeAppointments: Appointment[],
-  serviceDuration: number
+  serviceDuration: number,
+  selectedDate?: string,
+  currentTimeMinutes?: number,
+  establishmentDateString?: string
 ) {
+  const nowEst = getEstablishmentNow();
+  const effectiveCurrentMin = currentTimeMinutes !== undefined ? currentTimeMinutes : nowEst.currentMinutes;
+  const effectiveTodayDate = establishmentDateString || nowEst.dateString;
+
+  const isToday = selectedDate === effectiveTodayDate;
+  const isPastDate = !!selectedDate && selectedDate < effectiveTodayDate;
+
   return baseSlots.map(slotTime => {
     const slotStartMin = timeStringToMinutes(slotTime);
     const slotEndMin = slotStartMin + serviceDuration;
     const slotEndTime = minutesToTimeString(slotEndMin);
 
-    // Rule 1: Cannot exceed closing time (19:30)
+    // Rule 0: Cannot book in past dates
+    if (isPastDate) {
+      return {
+        time: slotTime,
+        formatted: slotTime,
+        available: false,
+        reason: 'Esta data já passou'
+      };
+    }
+
+    // Rule 1: Cannot select a slot that has already passed today (Establishment time)
+    if (isToday && slotStartMin < effectiveCurrentMin) {
+      return {
+        time: slotTime,
+        formatted: slotTime,
+        available: false,
+        reason: 'Horário já passou'
+      };
+    }
+
+    // Rule 2: Cannot exceed closing time (19:30)
     if (slotEndMin > CLOSING_TIME_MINUTES) {
       return {
         time: slotTime,
@@ -652,7 +756,7 @@ export function computeSlotAvailability(
       };
     }
 
-    // Rule 2: Cannot overlap with any existing non-cancelled appointment
+    // Rule 3: Cannot overlap with any existing non-cancelled appointment
     const conflict = activeAppointments.find(apt => {
       return isOverlapping(slotTime, slotEndTime, apt.startTime, apt.endTime);
     });
@@ -688,6 +792,34 @@ export async function bookAppointmentAtomically(appointmentData: {
   date: string;
   startTime: string;
 }): Promise<{ success: boolean; appointmentId?: string; error?: string }> {
+  // Validation: cannot book on Sunday
+  const [y, m, d] = appointmentData.date.split('-').map(Number);
+  const targetDate = new Date(y, m - 1, d);
+  if (targetDate.getDay() === 0) {
+    return {
+      success: false,
+      error: 'A barbearia está fechada aos domingos. Por favor, escolha de segunda a sábado.'
+    };
+  }
+
+  // Validation: cannot book past dates or past time slots on today
+  const nowEst = getEstablishmentNow();
+  if (appointmentData.date < nowEst.dateString) {
+    return {
+      success: false,
+      error: 'Não é possível agendar para uma data anterior à data atual.'
+    };
+  }
+  if (appointmentData.date === nowEst.dateString) {
+    const slotStartMin = timeStringToMinutes(appointmentData.startTime);
+    if (slotStartMin < nowEst.currentMinutes) {
+      return {
+        success: false,
+        error: 'Este horário já passou. Por favor, escolha um horário futuro disponível.'
+      };
+    }
+  }
+
   const endTime = calculateEndTime(appointmentData.startTime, appointmentData.serviceDuration);
   const endMin = timeStringToMinutes(endTime);
 

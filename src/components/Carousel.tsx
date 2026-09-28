@@ -15,13 +15,13 @@ export const Carousel: React.FC<CarouselProps> = ({ images }) => {
   // Filter only active images for the public carousel
   const activeImages = images.filter((img) => img.active !== false);
 
-  // Auto-play every 4 seconds
+  // Auto-play every 5 seconds
   useEffect(() => {
     if (isPaused || activeImages.length <= 1) return;
 
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % activeImages.length);
-    }, 4000);
+    }, 5000);
 
     return () => clearInterval(timer);
   }, [isPaused, activeImages.length]);
@@ -70,73 +70,85 @@ export const Carousel: React.FC<CarouselProps> = ({ images }) => {
     return null;
   }
 
+  const currentImage = activeImages[currentIndex];
+
   return (
     <div
-      className="relative w-full max-w-md mx-auto px-3 my-5 select-none"
+      className="relative w-full max-w-xl mx-auto px-4 my-6 select-none"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* 1:1 Aspect Ratio Container - clean, pure photo view without badge overlays */}
-      <div className="relative overflow-hidden rounded-2xl border-2 border-[#D4AF37]/35 shadow-[0_12px_40px_rgba(0,0,0,0.9),0_0_25px_rgba(212,175,55,0.2)] bg-[#0A0A0A] aspect-square w-full">
+      {/* Editorial Framed Container */}
+      <div className="relative overflow-hidden rounded-xl border border-zinc-800/90 bg-[#0C0C0E] shadow-[0_8px_30px_rgba(0,0,0,0.6)] aspect-square sm:aspect-[4/3] w-full group">
         {/* Slides Track */}
         <div
-          className="flex h-full w-full transition-transform duration-700 ease-out"
+          className="flex h-full w-full transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)]"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
           {activeImages.map((imgItem, idx) => (
-            <div key={imgItem.id || idx} className="min-w-full h-full relative overflow-hidden flex items-center justify-center bg-[#070707]">
-              {/* Subtle background ambient blur for images */}
-              <div 
-                className="absolute inset-0 bg-cover bg-center opacity-25 filter blur-lg scale-110 pointer-events-none"
+            <div
+              key={imgItem.id || idx}
+              className="min-w-full h-full relative overflow-hidden flex items-center justify-center bg-[#09090B]"
+            >
+              {/* Subtle diffused background tone */}
+              <div
+                className="absolute inset-0 bg-cover bg-center opacity-20 filter blur-xl scale-110 pointer-events-none"
                 style={{ backgroundImage: `url(${imgItem.url})` }}
               />
 
-              {/* Foreground Image shown whole and complete without clipping key details */}
+              {/* Main Image */}
               <img
                 src={imgItem.url}
-                alt={imgItem.title || `Foto ${idx + 1}`}
-                className="relative z-10 w-full h-full object-contain p-1"
+                alt={imgItem.title || `Trabalho ${idx + 1} - Flayder Willis Barbearia`}
+                className="relative z-10 w-full h-full object-contain p-2 sm:p-3 transition-transform duration-500 ease-out group-hover:scale-[1.02]"
                 loading={idx === 0 ? 'eager' : 'lazy'}
               />
             </div>
           ))}
         </div>
 
-        {/* Navigation buttons to skip manually */}
+        {/* Minimalist Editorial Counter (top right) */}
+        <div className="absolute top-3.5 right-3.5 z-20 px-2.5 py-1 rounded bg-black/75 border border-white/10 backdrop-blur-sm text-[11px] font-mono tracking-widest text-zinc-300">
+          <span>{String(currentIndex + 1).padStart(2, '0')}</span>
+          <span className="text-zinc-600 mx-1">/</span>
+          <span className="text-zinc-500">{String(activeImages.length).padStart(2, '0')}</span>
+        </div>
+
+        {/* Navigation Buttons: Discreet, refined editorial chevrons */}
         {activeImages.length > 1 && (
           <>
             <button
               onClick={handlePrev}
               aria-label="Imagem anterior"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/75 border border-[#D4AF37]/50 text-[#F1D77A] flex items-center justify-center backdrop-blur-md transition-all hover:bg-[#D4AF37] hover:text-black active:scale-95 z-20 shadow-lg cursor-pointer"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/70 hover:bg-[#1A1A1E] border border-zinc-700/80 text-zinc-300 hover:text-white flex items-center justify-center backdrop-blur-sm transition-all hover:-translate-x-0.5 active:scale-95 z-20 shadow-md cursor-pointer opacity-90 hover:opacity-100"
             >
-              <ChevronLeft size={20} />
+              <ChevronLeft size={18} />
             </button>
             <button
               onClick={handleNext}
               aria-label="Próxima imagem"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/75 border border-[#D4AF37]/50 text-[#F1D77A] flex items-center justify-center backdrop-blur-md transition-all hover:bg-[#D4AF37] hover:text-black active:scale-95 z-20 shadow-lg cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/70 hover:bg-[#1A1A1E] border border-zinc-700/80 text-zinc-300 hover:text-white flex items-center justify-center backdrop-blur-sm transition-all hover:translate-x-0.5 active:scale-95 z-20 shadow-md cursor-pointer opacity-90 hover:opacity-100"
             >
-              <ChevronRight size={20} />
+              <ChevronRight size={18} />
             </button>
           </>
         )}
 
-        {/* Dot Indicators */}
+        {/* Linear minimal progress indicators at the bottom */}
         {activeImages.length > 1 && (
-          <div className="absolute bottom-3.5 right-4 flex items-center space-x-1.5 z-20 bg-black/60 px-2.5 py-1 rounded-full border border-white/10 backdrop-blur-sm">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm border border-white/5">
             {activeImages.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentIndex(idx)}
-                aria-label={`Slide ${idx + 1}`}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
+                aria-label={`Ver imagem ${idx + 1}`}
+                className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${
                   idx === currentIndex
-                    ? 'w-5 bg-gradient-to-r from-[#D4AF37] to-[#F1D77A] shadow-[0_0_8px_rgba(212,175,55,0.9)]'
-                    : 'w-1.5 bg-white/35 hover:bg-white/70'
+                    ? 'w-6 bg-[#C5A059]'
+                    : 'w-1.5 bg-zinc-600 hover:bg-zinc-400'
                 }`}
               />
             ))}

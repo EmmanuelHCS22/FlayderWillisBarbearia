@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
-import { LOGO_URL, HEADER_BANNER_URL, WHATSAPP_URL, INSTAGRAM_URL, GOOGLE_REVIEW_URL } from './constants';
+import {
+  LOGO_URL,
+  HEADER_BANNER_URL,
+  WHATSAPP_URL,
+  INSTAGRAM_URL,
+  GOOGLE_REVIEW_URL,
+  BARBERSHOP_ADDRESS
+} from './constants';
 import { Carousel } from './components/Carousel';
 import { ServicesList } from './components/ServicesList';
 import { BookingFlow } from './components/BookingFlow';
@@ -9,7 +16,7 @@ import { DirectionsModal } from './components/DirectionsModal';
 import { PremiumIcon } from './components/PremiumIcon';
 import { Service, CarouselImageItem } from './types';
 import { subscribeToServices, subscribeToCarousel } from './services/bookingService';
-import { Calendar, ExternalLink, Lock, Star } from 'lucide-react';
+import { Calendar, ExternalLink, Lock, Star, MapPin, Clock } from 'lucide-react';
 
 export default function App() {
   const [services, setServices] = useState<Service[]>([]);
@@ -20,7 +27,7 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
 
-  // Subscribe to live Firestore services internally
+  // Subscribe to live Firestore services
   useEffect(() => {
     const unsubscribe = subscribeToServices((fetchedServices) => {
       setServices(fetchedServices);
@@ -70,181 +77,188 @@ export default function App() {
   };
 
   return (
-    <div className="w-full max-w-100vw min-h-screen bg-[#050505] text-zinc-100 overflow-x-hidden font-sans selection:bg-[#D4AF37] selection:text-black pb-28">
-      {/* Background ambient lighting effects */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[520px] h-[520px] bg-[#D4AF37]/8 rounded-full blur-[140px]" />
-        <div className="absolute top-[40%] -left-32 w-72 h-72 bg-[#D4AF37]/5 rounded-full blur-[100px]" />
-        <div className="absolute bottom-[20%] -right-32 w-72 h-72 bg-[#D4AF37]/5 rounded-full blur-[100px]" />
-      </div>
-
-      {/* HEADER SECTION WITH HERO BANNER BACKGROUND */}
-      <section className="relative w-full overflow-hidden">
-        {/* Background Image Layer (background-image: cover, center) */}
+    <div className="w-full min-h-screen bg-[#09090B] text-zinc-100 font-sans selection:bg-[#C5A059] selection:text-black pb-28">
+      {/* HERO SECTION */}
+      <header className="relative w-full overflow-hidden border-b border-zinc-800/80">
+        {/* Cinematic Backdrop Image with Dark Editorial Vignette */}
         <div
-          className="absolute inset-0 w-full h-full bg-cover bg-center sm:bg-[center_top] pointer-events-none z-0"
+          className="absolute inset-0 w-full h-full bg-cover bg-center pointer-events-none opacity-40 scale-105"
           style={{
             backgroundImage: `url('${HEADER_BANNER_URL}')`,
-            backgroundRepeat: 'no-repeat',
-            backgroundSize: 'cover'
+            backgroundPosition: 'center 20%'
           }}
         />
 
-        {/* Gradiente Preto Overlay (Transição suave) */}
+        {/* Gradiente escuro fotográfico */}
         <div
-          className="absolute inset-0 pointer-events-none z-1"
+          className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'linear-gradient(to top, rgba(5,5,5,1) 0%, rgba(5,5,5,0.92) 20%, rgba(0,0,0,0.72) 45%, rgba(0,0,0,0.30) 75%, rgba(0,0,0,0.08) 100%)'
+            background:
+              'linear-gradient(to bottom, rgba(9,9,11,0.6) 0%, rgba(9,9,11,0.85) 50%, rgba(9,9,11,1) 100%)'
           }}
         />
 
-        {/* Foreground Content: Logo e Nome da Barbearia centralizados na frente */}
-        <div className="relative z-10 w-full max-w-md mx-auto pt-10 sm:pt-14 pb-4 px-4 text-center">
-          {/* Logo Oficial Grande e Centralizada */}
+        {/* Hero Content */}
+        <div className="relative z-10 w-full max-w-xl mx-auto pt-10 sm:pt-14 pb-8 px-4 text-center">
+          {/* Logo Oficial com Presença */}
           <div className="inline-block relative">
             <img
               src={LOGO_URL}
               alt="Flayder Willis Barbearia Logo"
-              className="h-36 sm:h-44 mx-auto object-contain drop-shadow-[0_12px_35px_rgba(0,0,0,0.85),0_0_25px_rgba(212,175,55,0.4)] select-none transition-transform hover:scale-105 duration-300"
+              className="h-28 sm:h-36 mx-auto object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.85)] select-none transition-transform hover:scale-[1.02] duration-300"
             />
           </div>
 
-          {/* Nome da Barbearia e slogan */}
-          <div className="mt-3">
-            <h1 className="text-lg sm:text-xl font-serif font-bold tracking-[0.22em] text-[#E5C158] uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-              FLAYDER WILLIS BARBEARIA
+          {/* Nome & Posicionamento */}
+          <div className="mt-4">
+            <h1 className="text-xl sm:text-2xl font-serif font-bold tracking-[0.2em] text-zinc-100 uppercase">
+              Flayder Willis Barbearia
             </h1>
-            <p className="text-xs font-medium tracking-widest text-[#F1D77A]/90 mt-1 uppercase drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
-              "Seu estilo. Seu momento. Sua marca."
-            </p>
-            <p className="text-xs text-zinc-300 mt-2 font-light drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
-              Agende seu horário de forma rápida e fácil.
+
+            <p className="text-xs sm:text-sm font-light text-zinc-300 mt-1.5 tracking-wide">
+              Precisão no corte. Respeito ao seu estilo.
             </p>
 
-            {/* Primary Call to Action Button */}
-            <div className="mt-5 max-w-sm mx-auto">
+            <div className="flex items-center justify-center gap-3 mt-3 text-[11px] text-zinc-400">
+              <span className="flex items-center gap-1">
+                <MapPin size={12} className="text-[#C5A059]" />
+                <span>Luizote de Freitas • Uberlândia</span>
+              </span>
+              <span className="text-zinc-600">·</span>
+              <span className="flex items-center gap-1">
+                <Clock size={12} className="text-[#C5A059]" />
+                <span>Seg a Sáb 08h–19h30</span>
+              </span>
+            </div>
+
+            {/* Primary Action Button */}
+            <div className="mt-6 max-w-xs mx-auto">
               <button
                 onClick={() => handleNavigate('booking')}
-                className="w-full py-4 px-6 rounded-2xl font-serif font-bold uppercase tracking-[0.18em] text-sm text-black bg-gradient-to-r from-[#D4AF37] via-[#F1D77A] to-[#B38728] shadow-[0_8px_30px_rgba(212,175,55,0.45)] hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer border border-[#FFF1B8]/40 flex items-center justify-center gap-3"
+                className="w-full py-3.5 px-6 rounded-lg font-serif font-bold uppercase tracking-[0.16em] text-xs sm:text-sm text-black bg-[#C5A059] hover:bg-[#D5B069] active:translate-y-0.5 transition-all cursor-pointer shadow-md flex items-center justify-center gap-2.5"
               >
-                <Calendar size={18} className="text-black" />
-                <span>AGENDAR HORÁRIO</span>
+                <Calendar size={17} />
+                <span>Agendar Horário</span>
               </button>
             </div>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* RESTANTE DO BIOSITE (Mantendo layout existente de contatos, carrossel, serviços e agendamento) */}
-      <div className="relative z-10 w-full max-w-md mx-auto">
-        {/* Contact & Social Section: WhatsApp, Instagram, Google Review e Único Botão "COMO CHEGAR" */}
-        <section className="px-4 py-4 space-y-3">
+      {/* MAIN CONTAINER */}
+      <main className="relative z-10 w-full max-w-xl mx-auto">
+        {/* ESSENTIAL ACTIONS & INFORMATION (WhatsApp, Instagram, Google Review, Como Chegar) */}
+        <section className="px-4 pt-6 pb-2">
           <div className="grid grid-cols-2 gap-3">
-            {/* 1. ENTRE EM CONTATO CONOSCO NO WHATSAPP (Original Green) */}
+            {/* WhatsApp */}
             <a
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-br from-[#0D140F] to-[#050505] border border-[#25D366]/35 hover:border-[#25D366] shadow-[0_4px_15px_rgba(0,0,0,0.6)] hover:shadow-[0_0_20px_rgba(37,211,102,0.3)] transition-all cursor-pointer"
+              className="group flex items-center gap-3 p-3 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-black/60 border border-[#25D366]/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <PremiumIcon name="whatsapp" size={26} />
+              <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+                <PremiumIcon name="whatsapp" size={20} />
               </div>
               <div className="text-left overflow-hidden">
-                <span className="block text-[10px] text-zinc-400 uppercase tracking-wider">Contato</span>
-                <span className="block text-xs font-bold text-white group-hover:text-[#25D366] truncate transition-colors">WhatsApp</span>
+                <span className="block text-[10px] text-zinc-500 uppercase tracking-wider">Contato</span>
+                <span className="block text-xs font-medium text-zinc-200 group-hover:text-emerald-400 truncate transition-colors">WhatsApp</span>
               </div>
             </a>
 
-            {/* 2. SIGA NOSSA PÁGINA NO INSTAGRAM (Original Instagram Colors) */}
+            {/* Instagram */}
             <a
               href={INSTAGRAM_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-br from-[#160D14] to-[#050505] border border-[#E1306C]/35 hover:border-[#E1306C] shadow-[0_4px_15px_rgba(0,0,0,0.6)] hover:shadow-[0_0_20px_rgba(225,48,108,0.3)] transition-all cursor-pointer"
+              className="group flex items-center gap-3 p-3 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-black/60 border border-[#E1306C]/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <PremiumIcon name="instagram" size={26} />
+              <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+                <PremiumIcon name="instagram" size={20} />
               </div>
               <div className="text-left overflow-hidden">
-                <span className="block text-[10px] text-zinc-400 uppercase tracking-wider">Nosso Perfil</span>
-                <span className="block text-xs font-bold text-white group-hover:text-[#E1306C] truncate transition-colors">Instagram</span>
+                <span className="block text-[10px] text-zinc-500 uppercase tracking-wider">Perfil</span>
+                <span className="block text-xs font-medium text-zinc-200 group-hover:text-zinc-100 truncate transition-colors">Instagram</span>
               </div>
             </a>
           </div>
 
-          {/* 3. AVALIE-NOS NO GOOGLE (Original Google Colors: Blue, Red, Yellow, Green) */}
-          <a
-            href={GOOGLE_REVIEW_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-[#121215] via-[#0E0E10] to-[#08080A] border border-blue-500/30 hover:border-blue-400 shadow-[0_4px_15px_rgba(0,0,0,0.7)] hover:shadow-[0_0_25px_rgba(66,133,244,0.25)] transition-all cursor-pointer select-none"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-black/80 border border-white/10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <PremiumIcon name="google" size={28} />
-              </div>
-              <div className="text-left">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-white group-hover:text-blue-400 transition-colors">
-                    AVALIE-NOS NO GOOGLE
-                  </span>
-                  <div className="flex text-[#FBBC05]">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} size={11} className="fill-[#FBBC05]" />
-                    ))}
-                  </div>
+          <div className="mt-3 space-y-2.5">
+            {/* Avalie no Google */}
+            <a
+              href={GOOGLE_REVIEW_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between p-3.5 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+                  <PremiumIcon name="google" size={20} />
                 </div>
-                <span className="block text-[10px] text-zinc-400 mt-0.5">
-                  Sua opinião é fundamental para nossa excelência
-                </span>
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-zinc-200 uppercase tracking-wide group-hover:text-zinc-50 transition-colors">
+                      Avalie no Google
+                    </span>
+                    <div className="flex text-[#FBBC05]">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={11} className="fill-[#FBBC05]" />
+                      ))}
+                    </div>
+                  </div>
+                  <span className="block text-[11px] text-zinc-400 mt-0.5">
+                    Deixe sua opinião sobre nossos serviços
+                  </span>
+                </div>
               </div>
-            </div>
-            <ExternalLink size={16} className="text-zinc-400 group-hover:text-blue-400 shrink-0 mr-1 transition-colors" />
-          </a>
+              <ExternalLink size={15} className="text-zinc-500 group-hover:text-zinc-300 transition-colors mr-1" />
+            </a>
 
-          {/* 4. ÚNICO BOTÃO: COMO CHEGAR (Padrão Preto e Dourado com Ícone 3D) */}
-          <button
-            type="button"
-            onClick={() => setIsDirectionsOpen(true)}
-            className="w-full group flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-[#141006] via-[#0D0B04] to-[#171305] border border-[#D4AF37]/50 hover:border-[#F1D77A] shadow-[0_4px_18px_rgba(0,0,0,0.7)] hover:shadow-[0_0_25px_rgba(212,175,55,0.35)] transition-all cursor-pointer select-none active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-black/85 border border-[#D4AF37]/45 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-[0_0_12px_rgba(212,175,55,0.25)]">
-                <PremiumIcon name="location" size={26} />
+            {/* Como Chegar (Modal Google Maps + Waze) */}
+            <button
+              type="button"
+              onClick={() => setIsDirectionsOpen(true)}
+              className="w-full group flex items-center justify-between p-3.5 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+                  <MapPin size={18} className="text-[#C5A059]" />
+                </div>
+                <div>
+                  <span className="block text-xs font-medium text-zinc-200 uppercase tracking-wide group-hover:text-[#C5A059] transition-colors">
+                    Como Chegar
+                  </span>
+                  <span className="block text-[11px] text-zinc-400 mt-0.5">
+                    Rotas no Google Maps ou Waze
+                  </span>
+                </div>
               </div>
-              <div className="text-left">
-                <span className="block text-xs font-serif font-bold uppercase tracking-wider text-[#F1D77A] group-hover:text-white transition-colors">
-                  📍 COMO CHEGAR
-                </span>
-                <span className="block text-[10px] text-zinc-400 mt-0.5">
-                  Rotas rápidas com Google Maps ou Waze
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#F1D77A] group-hover:bg-[#D4AF37] group-hover:text-black transition-all text-[11px] font-bold tracking-wider uppercase">
-              <span>ABRIR</span>
-            </div>
-          </button>
+              <span className="text-[11px] font-semibold text-[#C5A059] tracking-wider uppercase px-2.5 py-1 rounded bg-[#C5A059]/10 group-hover:bg-[#C5A059]/20 transition-colors">
+                Rotas
+              </span>
+            </button>
+          </div>
         </section>
 
-        {/* Works Carousel with dynamic Firestore images */}
-        <section className="py-2">
-          <div className="px-4 text-center mb-1">
-            <span className="text-[10px] font-bold tracking-[0.25em] text-[#D4AF37] uppercase">Galeria de Cortes & Estilo</span>
+        {/* PHOTO CAROUSEL GALLERY */}
+        <section className="pt-6 pb-2">
+          <div className="text-center mb-1 px-4">
+            <span className="text-[10px] font-semibold tracking-[0.25em] text-[#C5A059] uppercase">
+              Galeria de Cortes
+            </span>
           </div>
           <Carousel images={carouselImages} />
         </section>
 
-        {/* Services Section with Multi-Service Selection */}
+        {/* SERVICES SECTION */}
         <ServicesList
           services={services}
-          selectedServiceIds={selectedServices.map(s => s.id)}
+          selectedServiceIds={selectedServices.map((s) => s.id)}
           onToggleService={handleToggleServiceFromList}
           isLoading={isLoadingServices}
         />
 
-        {/* Booking Flow: Synchronized Multiple Services, Date & Slots */}
+        {/* BOOKING FLOW */}
         <BookingFlow
           services={services}
           selectedServices={selectedServices}
@@ -252,78 +266,76 @@ export default function App() {
           onClearServices={() => setSelectedServices([])}
         />
 
-        {/* Footer with OFFICIAL LOGO */}
-        <footer className="text-center px-4 py-10 mt-10 border-t border-[#D4AF37]/20 bg-[#0A0A0A]/80">
+        {/* FOOTER */}
+        <footer className="text-center px-4 pt-12 pb-8 mt-12 border-t border-zinc-800/80">
           <div className="inline-block mb-3">
             <img
               src={LOGO_URL}
               alt="Flayder Willis Barbearia Logo"
-              className="h-20 sm:h-24 mx-auto object-contain drop-shadow-[0_4px_15px_rgba(212,175,55,0.25)] select-none"
+              className="h-16 mx-auto object-contain select-none opacity-90"
             />
           </div>
 
-          <h3 className="font-serif font-bold text-sm tracking-widest text-[#F1D77A] uppercase">
-            FLAYDER WILLIS BARBEARIA
+          <h3 className="font-serif font-bold text-sm tracking-[0.18em] text-zinc-200 uppercase">
+            Flayder Willis Barbearia
           </h3>
-          <p className="text-xs text-zinc-400 mt-1 italic">
-            "Estilo, cuidado e personalidade."
+
+          <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
+            {BARBERSHOP_ADDRESS}
           </p>
 
-          <div className="flex items-center justify-center gap-5 mt-4 text-xs">
+          <p className="text-[11px] text-zinc-500 mt-1">
+            Segunda a Sábado das 08:00 às 19:30 • Domingo Fechado
+          </p>
+
+          <div className="flex items-center justify-center gap-4 mt-4 text-xs text-zinc-400">
             <a
               href={INSTAGRAM_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-zinc-400 hover:text-[#E1306C] flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="hover:text-zinc-200 transition-colors"
             >
-              <span>Instagram</span>
-              <ExternalLink size={12} />
+              Instagram
             </a>
-            <span className="text-zinc-700">•</span>
+            <span className="text-zinc-700">·</span>
             <a
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-zinc-400 hover:text-[#25D366] flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="hover:text-emerald-400 transition-colors"
             >
-              <span>WhatsApp</span>
-              <ExternalLink size={12} />
+              WhatsApp
             </a>
-            <span className="text-zinc-700">•</span>
+            <span className="text-zinc-700">·</span>
             <a
               href={GOOGLE_REVIEW_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-zinc-400 hover:text-blue-400 flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="hover:text-zinc-200 transition-colors"
             >
-              <span>Google</span>
-              <ExternalLink size={12} />
+              Google
             </a>
           </div>
 
-          <div className="mt-5 text-[11px] text-[#D4AF37]/80 uppercase tracking-widest">
-            Agende seu horário online.
-          </div>
-
-          {/* PAINEL ADMIN Access Button in Footer */}
-          <div className="mt-8 pt-4 border-t border-white/5 flex items-center justify-center">
+          {/* PAINEL ADMIN Access in Footer */}
+          <div className="mt-8 pt-4 border-t border-zinc-800/60 flex items-center justify-center">
             <button
               onClick={() => setIsAdminOpen(true)}
-              className="text-[11px] text-zinc-400 hover:text-[#F1D77A] flex items-center gap-2 transition-colors py-2 px-4 rounded-xl border border-white/10 hover:border-[#D4AF37]/40 hover:bg-[#D4AF37]/10 cursor-pointer uppercase font-semibold tracking-wider"
+              className="text-[11px] text-zinc-500 hover:text-zinc-300 flex items-center gap-1.5 transition-colors py-1.5 px-3 rounded border border-zinc-800 hover:border-zinc-700 cursor-pointer uppercase tracking-wider font-medium"
             >
-              <Lock size={13} className="text-[#D4AF37]" />
-              <span>PAINEL ADMIN</span>
+              <Lock size={12} className="text-[#C5A059]" />
+              <span>Painel Admin</span>
             </button>
           </div>
         </footer>
 
-        {/* Modal Elegante: Como Você Quer Chegar? (Google Maps vs Waze) */}
+        {/* Modal: Como Chegar (Google Maps / Waze) */}
         <DirectionsModal
           isOpen={isDirectionsOpen}
           onClose={() => setIsDirectionsOpen(false)}
         />
 
-        {/* Admin Dashboard Modal with Complete Firebase Auth & CRUD */}
+        {/* Admin Dashboard */}
         <AdminDashboard
           isOpen={isAdminOpen}
           onClose={() => setIsAdminOpen(false)}
@@ -331,13 +343,13 @@ export default function App() {
           carouselImages={carouselImages}
         />
 
-        {/* Mobile-first bottom navigation bar */}
+        {/* Bottom Nav */}
         <BottomNav
           activeTab={activeTab}
           onNavigate={handleNavigate}
           onOpenAdmin={() => setIsAdminOpen(true)}
         />
-      </div>
+      </main>
     </div>
   );
 }

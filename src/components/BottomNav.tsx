@@ -14,41 +14,41 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onNavigate
 }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#050505]/95 border-t border-[#D4AF37]/30 backdrop-blur-lg px-2 py-1.5 shadow-[0_-5px_25px_rgba(0,0,0,0.8)] max-w-md mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0C0C0E]/95 border-t border-zinc-800/90 backdrop-blur-md px-3 py-1.5 shadow-[0_-8px_30px_rgba(0,0,0,0.8)] max-w-xl mx-auto">
       <div className="flex items-center justify-around">
         {/* Início */}
         <button
           onClick={() => onNavigate('home')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
-            activeTab === 'home' ? 'text-[#F1D77A]' : 'text-zinc-400 hover:text-zinc-200'
+          className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-lg transition-colors cursor-pointer ${
+            activeTab === 'home' ? 'text-[#C5A059]' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >
-          <Home size={20} className={activeTab === 'home' ? 'text-[#D4AF37]' : ''} />
+          <Home size={19} className={activeTab === 'home' ? 'text-[#C5A059]' : ''} />
           <span className="text-[10px] mt-1 font-medium tracking-wide">Início</span>
         </button>
 
         {/* Serviços */}
         <button
           onClick={() => onNavigate('services')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
-            activeTab === 'services' ? 'text-[#F1D77A]' : 'text-zinc-400 hover:text-zinc-200'
+          className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-lg transition-colors cursor-pointer ${
+            activeTab === 'services' ? 'text-[#C5A059]' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >
-          <Scissors size={20} className={activeTab === 'services' ? 'text-[#D4AF37]' : ''} />
+          <Scissors size={19} className={activeTab === 'services' ? 'text-[#C5A059]' : ''} />
           <span className="text-[10px] mt-1 font-medium tracking-wide">Serviços</span>
         </button>
 
-        {/* Agendar Central Featured Button */}
+        {/* Agendar Central Focal Button */}
         <button
           onClick={() => onNavigate('booking')}
-          className="flex flex-col items-center justify-center -mt-5 cursor-pointer group px-1"
+          className="flex flex-col items-center justify-center -mt-5 cursor-pointer group px-2"
         >
-          <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#D4AF37] via-[#F1D77A] to-[#B38728] p-0.5 shadow-[0_0_18px_rgba(212,175,55,0.6)] group-hover:scale-105 transition-transform flex items-center justify-center">
-            <div className="w-full h-full rounded-full bg-black flex items-center justify-center">
-              <Calendar size={22} className="text-[#F1D77A]" />
+          <div className="w-12 h-12 rounded-full bg-[#C5A059] p-0.5 shadow-lg group-hover:scale-105 group-hover:bg-[#D5B069] transition-all flex items-center justify-center">
+            <div className="w-full h-full rounded-full bg-[#0D0D10] flex items-center justify-center">
+              <Calendar size={20} className="text-[#C5A059]" />
             </div>
           </div>
-          <span className="text-[10px] font-bold text-[#F1D77A] mt-1 tracking-wider uppercase">
+          <span className="text-[10px] font-semibold text-[#C5A059] mt-1 tracking-wider uppercase">
             Agendar
           </span>
         </button>
@@ -58,9 +58,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           href={INSTAGRAM_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-zinc-400 hover:text-[#E1306C] transition-colors cursor-pointer"
+          className="flex flex-col items-center justify-center py-1.5 px-3 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
         >
-          <PremiumIcon name="instagram" size={20} />
+          <PremiumIcon name="instagram" size={19} />
           <span className="text-[10px] mt-1 font-medium tracking-wide">Instagram</span>
         </a>
 
@@ -69,9 +69,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           href={WHATSAPP_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-zinc-400 hover:text-emerald-400 transition-colors cursor-pointer"
+          className="flex flex-col items-center justify-center py-1.5 px-3 rounded-lg text-zinc-400 hover:text-emerald-400 transition-colors cursor-pointer"
         >
-          <PremiumIcon name="whatsapp" size={20} />
+          <PremiumIcon name="whatsapp" size={19} />
           <span className="text-[10px] mt-1 font-medium tracking-wide">WhatsApp</span>
         </a>
       </div>
