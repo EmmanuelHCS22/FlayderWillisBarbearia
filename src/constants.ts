@@ -106,9 +106,18 @@ export const GOOGLE_REVIEW_URL = 'https://search.google.com/local/writereview?pl
 // Endereço exato da barbearia
 export const BARBERSHOP_ADDRESS = 'R. Roberto Margonari, 827 - Luizote de Freitas, Uberlândia - MG, 38414-465';
 
+// =========================================================================
+// FOTO DA FACHADA DA BARBEARIA
+// Cole aqui a URL ou o caminho da foto real da fachada da barbearia.
+// Exemplo: 'https://i.imgur.com/sua_foto_da_fachada.jpg' ou '/fachada.jpg'
+// Se deixado vazio (''), o componente exibirá um espaço preparado e elegante.
+// =========================================================================
+export const FACHADA_IMAGE_URL = '';
+
 // Links de navegação dinâmica para Google Maps e Waze
 const ENCODED_ADDRESS = encodeURIComponent(BARBERSHOP_ADDRESS);
 export const GOOGLE_MAPS_NAV_URL = `https://www.google.com/maps/search/?api=1&query=${ENCODED_ADDRESS}`;
+export const GOOGLE_MAPS_EMBED_URL = `https://maps.google.com/maps?q=${ENCODED_ADDRESS}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
 export const WAZE_NAV_URL = `https://waze.com/ul?q=${ENCODED_ADDRESS}&navigate=yes`;
 
 // Base time slots:

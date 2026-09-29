@@ -10,6 +10,7 @@ import {
 import { Carousel } from './components/Carousel';
 import { ServicesList } from './components/ServicesList';
 import { BookingFlow } from './components/BookingFlow';
+import { LocationSection } from './components/LocationSection';
 import { BottomNav } from './components/BottomNav';
 import { AdminDashboard } from './components/AdminDashboard';
 import { DirectionsModal } from './components/DirectionsModal';
@@ -146,9 +147,9 @@ export default function App() {
       </header>
 
       {/* MAIN CONTAINER */}
-      <main className="relative z-10 w-full max-w-xl mx-auto">
+      <main className="relative z-10 w-full max-w-xl md:max-w-3xl lg:max-w-4xl mx-auto">
         {/* ESSENTIAL ACTIONS & INFORMATION (WhatsApp, Instagram, Google Review, Como Chegar) */}
-        <section className="px-4 pt-6 pb-2">
+        <section className="px-4 pt-6 pb-2 max-w-xl mx-auto">
           <div className="grid grid-cols-2 gap-3">
             {/* WhatsApp */}
             <a
@@ -265,6 +266,9 @@ export default function App() {
           onToggleService={handleToggleServiceFromList}
           onClearServices={() => setSelectedServices([])}
         />
+
+        {/* ONDE ESTAMOS SECTION */}
+        <LocationSection onOpenDirections={() => setIsDirectionsOpen(true)} />
 
         {/* FOOTER */}
         <footer className="text-center px-4 pt-12 pb-8 mt-12 border-t border-zinc-800/80">
