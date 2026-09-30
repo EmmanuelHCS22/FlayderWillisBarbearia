@@ -142,3 +142,51 @@ export const BASE_TIME_SLOTS = [
 
 export const CLOSING_TIME_MINUTES = 19 * 60 + 30; // 19:30 = 1170 minutes
 export const OPENING_TIME_MINUTES = 8 * 60; // 08:00 = 480 minutes
+
+// =========================================================================
+// 8. NOSSA EQUIPE (DADOS EDITÁVEIS)
+// Adicione, edite ou remova profissionais da barbearia aqui.
+// =========================================================================
+export const DEFAULT_BARBERS = [
+  {
+    id: 'flayder',
+    name: 'Flayder Willis',
+    role: 'Mestre Barbeiro & Fundador',
+    specialty: 'Visagismo, Cortes Clássicos & Barboterapia',
+    imageUrl: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=600&q=80',
+    bio: 'Mais de 10 anos de experiência transformando visuais com precisão e técnica impecável.'
+  },
+  {
+    id: 'lucas',
+    name: 'Lucas Duarte',
+    role: 'Barbeiro Profissional',
+    specialty: 'Degradê Navalhado, Fade & Freestyle',
+    imageUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80',
+    bio: 'Especialista em transições limpas e finalizações modernas para o dia a dia.'
+  },
+  {
+    id: 'mateus',
+    name: 'Mateus Silva',
+    role: 'Barbeiro Especialista',
+    specialty: 'Design de Barba, Pigmentação & Alinhamento',
+    imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+    bio: 'Cuidado nos mínimos detalhes para valorizar o formato do rosto e barba.'
+  }
+];
+
+// =========================================================================
+// 9. CURSO DE BARBEIRO (DADOS EDITÁVEIS)
+// Edite as informações sobre o curso profissionalizante oferecido.
+// =========================================================================
+export const COURSE_INFO = {
+  title: 'Curso de Barbeiro Profissional',
+  subtitle: 'Aprenda a profissão que mais cresce com quem é referência',
+  workload: '60 Horas Práticas e Teóricas',
+  certificate: 'Certificado de Conclusão Incluso',
+  description:
+    'Torne-se um barbeiro de sucesso com treinamento 100% focado no atendimento prático. Aprenda visagismo, degradê (fade), cortes clássicos e modernos, barboterapia, navalhamento perfeito e técnicas de gestão e fidelização de clientes.',
+  // Foto da entrega de diplomas ou turma (pode ser trocada por qualquer link de imagem)
+  imageUrl: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1200&q=80',
+  whatsappMessage: 'Olá! Quero saber mais sobre o curso de barbeiro.'
+};
+

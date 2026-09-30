@@ -10,20 +10,23 @@ import {
 import { Carousel } from './components/Carousel';
 import { ServicesList } from './components/ServicesList';
 import { BookingFlow } from './components/BookingFlow';
+import { TeamSection } from './components/TeamSection';
+import { CourseSection } from './components/CourseSection';
+import { GoogleReviewSection } from './components/GoogleReviewSection';
 import { LocationSection } from './components/LocationSection';
 import { BottomNav } from './components/BottomNav';
 import { AdminDashboard } from './components/AdminDashboard';
 import { DirectionsModal } from './components/DirectionsModal';
-import { PremiumIcon } from './components/PremiumIcon';
-import { Service, CarouselImageItem } from './types';
+import { Service, CarouselImageItem, Barber } from './types';
 import { subscribeToServices, subscribeToCarousel } from './services/bookingService';
-import { Calendar, ExternalLink, Lock, Star, MapPin, Clock } from 'lucide-react';
+import { Calendar, Lock, MapPin, Clock } from 'lucide-react';
 
 export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [carouselImages, setCarouselImages] = useState<CarouselImageItem[]>([]);
   const [isLoadingServices, setIsLoadingServices] = useState(true);
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+  const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'services' | 'booking'>('home');
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
@@ -64,6 +67,14 @@ export default function App() {
     });
   };
 
+  const handleSelectBarberFromTeam = (barber: Barber) => {
+    setSelectedBarber(barber);
+    const bookingEl = document.getElementById('agendamento');
+    if (bookingEl) {
+      bookingEl.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const handleNavigate = (tab: 'home' | 'services' | 'booking') => {
     setActiveTab(tab);
     if (tab === 'home') {
@@ -78,9 +89,9 @@ export default function App() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#09090B] text-zinc-100 font-sans selection:bg-[#C5A059] selection:text-black pb-28">
-      {/* HERO SECTION */}
-      <header className="relative w-full overflow-hidden border-b border-zinc-800/80">
+    <div className="w-full min-h-screen bg-[#09090B] text-zinc-100 font-sans selection:bg-[#C5A059] selection:text-black">
+      {/* 1. SEÇÃO INÍCIO COM BOTÃO "AGENDAR HORÁRIO" */}
+      <header id="inicio" className="relative w-full overflow-hidden border-b border-zinc-800/80">
         {/* Cinematic Backdrop Image with Dark Editorial Vignette */}
         <div
           className="absolute inset-0 w-full h-full bg-cover bg-center pointer-events-none opacity-40 scale-105"
@@ -100,8 +111,8 @@ export default function App() {
         />
 
         {/* Hero Content */}
-        <div className="relative z-10 w-full max-w-xl mx-auto pt-10 sm:pt-14 pb-8 px-4 text-center">
-          {/* Logo Oficial com Presença */}
+        <div className="relative z-10 w-full max-w-xl mx-auto pt-10 sm:pt-14 pb-10 px-4 text-center">
+          {/* Logo Oficial */}
           <div className="inline-block relative">
             <img
               src={LOGO_URL}
@@ -132,7 +143,7 @@ export default function App() {
               </span>
             </div>
 
-            {/* Primary Action Button */}
+            {/* Botão Principal Agendar Horário */}
             <div className="mt-6 max-w-xs mx-auto">
               <button
                 onClick={() => handleNavigate('booking')}
@@ -146,103 +157,28 @@ export default function App() {
         </div>
       </header>
 
-      {/* MAIN CONTAINER */}
-      <main className="relative z-10 w-full max-w-xl md:max-w-3xl lg:max-w-4xl mx-auto">
-        {/* ESSENTIAL ACTIONS & INFORMATION (WhatsApp, Instagram, Google Review, Como Chegar) */}
-        <section className="px-4 pt-6 pb-2 max-w-xl mx-auto">
-          <div className="grid grid-cols-2 gap-3">
-            {/* WhatsApp */}
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer animate-btn-entrance-1"
-            >
-              <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-                <PremiumIcon name="whatsapp" size={20} />
-              </div>
-              <div className="text-left overflow-hidden">
-                <span className="block text-[10px] text-zinc-500 uppercase tracking-wider">Contato</span>
-                <span className="block text-xs font-medium text-zinc-200 group-hover:text-emerald-400 truncate transition-colors">WhatsApp</span>
-              </div>
-            </a>
+      {/* MAIN CONTAINER COM PADDING INFERIOR SUFICIENTE (Requirement 3: barra fixa não esconde nada) */}
+      <main className="relative z-10 w-full max-w-xl md:max-w-3xl lg:max-w-4xl mx-auto pb-32 sm:pb-36">
+        
+        {/* 2. SEÇÃO SERVIÇOS */}
+        <ServicesList
+          services={services}
+          selectedServiceIds={selectedServices.map((s) => s.id)}
+          onToggleService={handleToggleServiceFromList}
+          isLoading={isLoadingServices}
+        />
 
-            {/* Instagram */}
-            <a
-              href={INSTAGRAM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer animate-btn-entrance-2"
-            >
-              <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-                <PremiumIcon name="instagram" size={20} />
-              </div>
-              <div className="text-left overflow-hidden">
-                <span className="block text-[10px] text-zinc-500 uppercase tracking-wider">Perfil</span>
-                <span className="block text-xs font-medium text-zinc-200 group-hover:text-zinc-100 truncate transition-colors">Instagram</span>
-              </div>
-            </a>
-          </div>
+        {/* BLOCO DE AGENDAMENTO (LOGO APÓS OS SERVIÇOS) */}
+        <BookingFlow
+          services={services}
+          selectedServices={selectedServices}
+          onToggleService={handleToggleServiceFromList}
+          onClearServices={() => setSelectedServices([])}
+          initialBarber={selectedBarber}
+        />
 
-          <div className="mt-3 space-y-2.5">
-            {/* Avalie no Google */}
-            <a
-              href={GOOGLE_REVIEW_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center justify-between p-3.5 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer animate-btn-entrance-3"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-                  <PremiumIcon name="google" size={20} />
-                </div>
-                <div className="text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-zinc-200 uppercase tracking-wide group-hover:text-zinc-50 transition-colors">
-                      Avalie no Google
-                    </span>
-                    <div className="flex text-[#FBBC05]">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} size={11} className="fill-[#FBBC05]" />
-                      ))}
-                    </div>
-                  </div>
-                  <span className="block text-[11px] text-zinc-400 mt-0.5">
-                    Deixe sua opinião sobre nossos serviços
-                  </span>
-                </div>
-              </div>
-              <ExternalLink size={15} className="text-zinc-500 group-hover:text-zinc-300 transition-colors mr-1" />
-            </a>
-
-            {/* Como Chegar (Modal Google Maps + Waze) */}
-            <button
-              type="button"
-              onClick={() => setIsDirectionsOpen(true)}
-              className="w-full group flex items-center justify-between p-3.5 rounded-lg bg-[#111114] border border-zinc-800/90 hover:border-zinc-700 hover:bg-[#15151A] transition-all cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-                  <MapPin size={18} className="text-[#C5A059]" />
-                </div>
-                <div>
-                  <span className="block text-xs font-medium text-zinc-200 uppercase tracking-wide group-hover:text-[#C5A059] transition-colors">
-                    Como Chegar
-                  </span>
-                  <span className="block text-[11px] text-zinc-400 mt-0.5">
-                    Rotas no Google Maps ou Waze
-                  </span>
-                </div>
-              </div>
-              <span className="text-[11px] font-semibold text-[#C5A059] tracking-wider uppercase px-2.5 py-1 rounded bg-[#C5A059]/10 group-hover:bg-[#C5A059]/20 transition-colors">
-                Rotas
-              </span>
-            </button>
-          </div>
-        </section>
-
-        {/* PHOTO CAROUSEL GALLERY */}
-        <section className="pt-6 pb-2">
+        {/* 3. GALERIA DE CORTES */}
+        <section className="pt-8 pb-4">
           <div className="text-center mb-1 px-4">
             <span className="text-[10px] font-semibold tracking-[0.25em] text-[#C5A059] uppercase">
               Galeria de Cortes
@@ -251,23 +187,16 @@ export default function App() {
           <Carousel images={carouselImages} />
         </section>
 
-        {/* SERVICES SECTION */}
-        <ServicesList
-          services={services}
-          selectedServiceIds={selectedServices.map((s) => s.id)}
-          onToggleService={handleToggleServiceFromList}
-          isLoading={isLoadingServices}
-        />
+        {/* 4. NOSSA EQUIPE */}
+        <TeamSection onSelectBarberForBooking={handleSelectBarberFromTeam} />
 
-        {/* BOOKING FLOW */}
-        <BookingFlow
-          services={services}
-          selectedServices={selectedServices}
-          onToggleService={handleToggleServiceFromList}
-          onClearServices={() => setSelectedServices([])}
-        />
+        {/* 5. CURSO */}
+        <CourseSection />
 
-        {/* ONDE ESTAMOS SECTION */}
+        {/* 6. AVALIAÇÃO NO GOOGLE */}
+        <GoogleReviewSection />
+
+        {/* 7. LOCALIZAÇÃO (ONDE ESTAMOS) */}
         <LocationSection onOpenDirections={() => setIsDirectionsOpen(true)} />
 
         {/* FOOTER */}
@@ -347,7 +276,7 @@ export default function App() {
           carouselImages={carouselImages}
         />
 
-        {/* Bottom Nav */}
+        {/* Fixed Bottom Navigation */}
         <BottomNav
           activeTab={activeTab}
           onNavigate={handleNavigate}

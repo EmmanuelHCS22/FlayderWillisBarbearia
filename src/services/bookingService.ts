@@ -712,7 +712,8 @@ export function computeSlotAvailability(
   serviceDuration: number,
   selectedDate?: string,
   currentTimeMinutes?: number,
-  establishmentDateString?: string
+  establishmentDateString?: string,
+  selectedBarberId?: string | null
 ) {
   const nowEst = getEstablishmentNow();
   const effectiveCurrentMin = currentTimeMinutes !== undefined ? currentTimeMinutes : nowEst.currentMinutes;
@@ -746,7 +747,7 @@ export function computeSlotAvailability(
       };
     }
 
-    // Rule 2: Cannot exceed closing time (19:30)
+    // Rule 2: Continuous duration cannot exceed closing time (19:30)
     if (slotEndMin > CLOSING_TIME_MINUTES) {
       return {
         time: slotTime,
@@ -756,8 +757,13 @@ export function computeSlotAvailability(
       };
     }
 
-    // Rule 3: Cannot overlap with any existing non-cancelled appointment
+    // Rule 3: Continuous availability check against non-cancelled appointments in Firestore
+    // If a specific barber is selected, check conflicts for that barber (or unassigned appointments)
     const conflict = activeAppointments.find(apt => {
+      if (selectedBarberId && selectedBarberId !== 'any') {
+        const matchesBarber = apt.barberId === selectedBarberId || !apt.barberId || apt.barberId === 'any';
+        if (!matchesBarber) return false;
+      }
       return isOverlapping(slotTime, slotEndTime, apt.startTime, apt.endTime);
     });
 
@@ -789,6 +795,8 @@ export async function bookAppointmentAtomically(appointmentData: {
   services?: Array<{ id: string; name: string; price: number; duration: number }>;
   serviceDuration: number;
   servicePrice: number;
+  barberId?: string;
+  barberName?: string;
   date: string;
   startTime: string;
 }): Promise<{ success: boolean; appointmentId?: string; error?: string }> {
@@ -840,7 +848,15 @@ export async function bookAppointmentAtomically(appointmentData: {
       const existingLocks = lockDocSnap.exists() ? (lockDocSnap.data()?.slots || []) : [];
 
       for (const item of existingLocks) {
-        if (isOverlapping(appointmentData.startTime, endTime, item.startTime, item.endTime)) {
+        // Check barber match if specified
+        const sameBarber =
+          !appointmentData.barberId ||
+          appointmentData.barberId === 'any' ||
+          !item.barberId ||
+          item.barberId === 'any' ||
+          item.barberId === appointmentData.barberId;
+
+        if (sameBarber && isOverlapping(appointmentData.startTime, endTime, item.startTime, item.endTime)) {
           throw new Error('SLOT_ALREADY_TAKEN');
         }
       }
@@ -850,6 +866,7 @@ export async function bookAppointmentAtomically(appointmentData: {
         ...existingLocks,
         {
           appointmentId: newAppointmentRef.id,
+          barberId: appointmentData.barberId || 'any',
           startTime: appointmentData.startTime,
           endTime: endTime,
           createdAt: nowIso
@@ -865,6 +882,8 @@ export async function bookAppointmentAtomically(appointmentData: {
         services: appointmentData.services,
         serviceDuration: appointmentData.serviceDuration,
         servicePrice: appointmentData.servicePrice,
+        barberId: appointmentData.barberId || 'any',
+        barberName: appointmentData.barberName || 'Sem preferência',
         date: appointmentData.date,
         startTime: appointmentData.startTime,
         endTime: endTime,
@@ -899,20 +918,20 @@ export async function bookAppointmentAtomically(appointmentData: {
 }
 
 /**
- * Format total duration nicely (e.g. 105 min -> "1h45", 45 min -> "45 minutos")
+ * Format total duration nicely (e.g. 105 min -> "1h 45min", 45 min -> "45 min")
  */
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} minutos`;
+export function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   if (m === 0) return `${h}h`;
-  return `${h}h${m.toString().padStart(2, '0')}`;
+  return `${h}h ${m}min`;
 }
 
 /**
  * Format date string YYYY-MM-DD to DD/MM/AAAA
  */
-function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string): string {
   const parts = dateStr.split('-');
   if (parts.length === 3) {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -930,6 +949,7 @@ export function buildWhatsAppAppointmentText(appointment: {
   services?: Array<{ id: string; name: string; price: number; duration: number }>;
   serviceDuration: number;
   servicePrice: number;
+  barberName?: string;
   date: string;
   startTime: string;
 }): string {
@@ -946,7 +966,11 @@ export function buildWhatsAppAppointmentText(appointment: {
     servicesBlock = `• ${appointment.serviceName} — R$ ${formattedPrice}`;
   }
 
-  return `Olá Flayder Willis Barbearia! 👋\n\nAcabei de marcar um horário pelo site.\n\n👤 Nome: ${appointment.customerName}\n\n📱 Telefone: ${appointment.customerPhone}\n\n✂️ Serviço(s):\n${servicesBlock}\n\n📅 Data: ${formattedDate}\n\n🕐 Horário: ${appointment.startTime}\n\n⏱️ Duração: ${formattedDuration}\n\n💰 Valor total: R$ ${formattedPrice}\n\nAguardo a confirmação. Obrigado!`;
+  const barberText = appointment.barberName && appointment.barberName !== 'Sem preferência'
+    ? `\n\n💈 Profissional: ${appointment.barberName}`
+    : '';
+
+  return `Olá Flayder Willis Barbearia! 👋\n\nAcabei de agendar um horário pelo site.\n\n👤 Nome: ${appointment.customerName}\n\n📱 Telefone: ${appointment.customerPhone}${barberText}\n\n✂️ Serviço(s):\n${servicesBlock}\n\n📅 Data: ${formattedDate}\n\n🕐 Horário: ${appointment.startTime}\n\n⏱️ Duração estimada: ${formattedDuration}\n\n💰 Valor total: R$ ${formattedPrice}\n\nAguardo a confirmação. Obrigado!`;
 }
 
 /**
@@ -959,6 +983,7 @@ export function generateWhatsAppUrl(appointment: {
   services?: Array<{ id: string; name: string; price: number; duration: number }>;
   serviceDuration: number;
   servicePrice: number;
+  barberName?: string;
   date: string;
   startTime: string;
 }): string {

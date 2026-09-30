@@ -25,6 +25,15 @@ export interface ServiceItemInBooking {
   duration: number;
 }
 
+export interface Barber {
+  id: string;
+  name: string;
+  role: string;
+  specialty: string;
+  imageUrl: string;
+  bio?: string;
+}
+
 export interface Appointment {
   id?: string;
   customerName: string;
@@ -34,6 +43,8 @@ export interface Appointment {
   services?: ServiceItemInBooking[];
   serviceDuration: number;
   servicePrice: number;
+  barberId?: string;
+  barberName?: string;
   date: string; // YYYY-MM-DD
   startTime: string; // HH:mm
   endTime: string; // HH:mm
